@@ -192,6 +192,8 @@ let holdAbort = null;
 const followUp = [];
 /** Steering queue: steers that arrived while a run was live. */
 const steering = [];
+/** Extension UI dialogs awaiting the host's extension_ui_response. */
+const extensionUiWaiters = new Map();
 let endedWithStreamingFlag = false;
 
 /** A line held back to go out in one write with the next one. */
@@ -384,6 +386,54 @@ async function runPrompt(text) {
   if (text === "/die") {
     // Mid-run death without an answer: the bridge's next write hits EPIPE.
     process.exit(0);
+  }
+  const uiMatch = text.match(/^\/ui (\{.*\})$/su);
+  if (uiMatch) {
+    const spec = JSON.parse(uiMatch[1]);
+    const uiId = `ui-${turnCounter}`;
+    const fireAndForget = [
+      "notify",
+      "setStatus",
+      "setWidget",
+      "setTitle",
+      "set_editor_text",
+    ].includes(spec.method);
+    const response = fireAndForget
+      ? null
+      : await new Promise((resolve) => {
+          extensionUiWaiters.set(uiId, resolve);
+          send({
+            type: "extension_ui_request",
+            id: uiId,
+            method: spec.method,
+            title: spec.title,
+            ...(spec.options ? { options: spec.options } : {}),
+            ...(spec.message ? { message: spec.message } : {}),
+            ...(spec.placeholder ? { placeholder: spec.placeholder } : {}),
+            ...(spec.prefill ? { prefill: spec.prefill } : {}),
+          });
+        });
+    const reply = `UI said: ${JSON.stringify(response)}`;
+    const assistant = {
+      role: "assistant",
+      content: [{ type: "text", text: reply }],
+      provider: model.provider,
+      model: model.id,
+      usage: { input: 12, output: 5, totalTokens: 17 },
+      stopReason: "stop",
+    };
+    event({ type: "message_start", message: { role: "assistant", content: [] } });
+    event({ type: "message_update", assistantMessageEvent: { type: "text_delta", delta: reply, contentIndex: 0 }, message: assistant });
+    event({ type: "message_end", message: assistant });
+    event({ type: "turn_end", message: assistant, toolResults: [] });
+    tokens += 17;
+    leafCounter += 1;
+    leafId = `leaf-${leafCounter}`;
+    const messages = [{ role: "user", content: text }, assistant];
+    await emitExtensionEvent("agent_end", { messages });
+    event({ type: "agent_end", messages });
+    isStreaming = false;
+    return;
   }
   let toolResultText = "";
   const toolMatch = text.match(/^\/tool (\S+) ?(.*)$/su);
@@ -598,6 +648,16 @@ readLines(process.stdin, (line) => {
   try {
     command = JSON.parse(trimmed);
   } catch {
+    return;
+  }
+  if (command.type === "extension_ui_response") {
+    const waiter = extensionUiWaiters.get(command.id);
+    extensionUiWaiters.delete(command.id);
+    const uiLogPath = process.env.FAKE_PI_UI_LOG;
+    if (uiLogPath) {
+      appendFileSync(uiLogPath, `${JSON.stringify(command)}\n`);
+    }
+    waiter?.(command);
     return;
   }
   // Commands are handled in order, but `prompt` runs its scripted turn
