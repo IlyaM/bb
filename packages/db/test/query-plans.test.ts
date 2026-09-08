@@ -1,3 +1,4 @@
+import { findEnvironmentLaunchPathClaim } from "../src/data/environment-launches.js";
 import { describe, expect, it } from "vitest";
 import { threadScope, turnScope } from "@bb/domain";
 import {
@@ -39,6 +40,7 @@ import {
   listDueScheduledQueuedThreadMessages,
   listQueuedThreadMessagesByWaitHolder,
 } from "../src/data/queued-thread-messages.js";
+import { listEnvironments } from "../src/data/environments.js";
 import { upsertHost } from "../src/data/hosts.js";
 import { createProject } from "../src/data/projects.js";
 import { createEnvironment } from "../src/data/environments.js";
@@ -228,6 +230,29 @@ function assertEmittedQueryPlanUsesIndex(
 }
 
 describe("slow query index plans", () => {
+  it.each([null, "/tmp/claimed"])(
+    "indexes active launch claims for path %s",
+    (path) => {
+      const { db } = setup();
+      const captured = captureStatements(db, () => {
+        expect(
+          findEnvironmentLaunchPathClaim(db, "host_test", path, null),
+        ).toBeNull();
+      });
+      expect(captured).toHaveLength(1);
+      const query = captured[0]!;
+      const details = queryPlanDetails({
+        db,
+        params: query.params,
+        sql: query.sql,
+      });
+      expect(details).toContain(
+        "USING INDEX environment_launches_active_claim_idx",
+      );
+      expect(details).not.toContain("SCAN environment_launches");
+    },
+  );
+
   // Both queue indexes are PARTIAL. A partial index is only usable when the
   // query repeats its WHERE clause, so a refactor that drops one liveness
   // predicate from the query — or adds one to the index — silently degrades
@@ -268,6 +293,30 @@ describe("slow query index plans", () => {
       /USING INDEX queued_thread_messages_wait_holder_idx/u,
     );
     expect(details).not.toMatch(/SCAN queued_thread_messages/u);
+
+    db.$client.close();
+  });
+
+  it("finds a provider's own environment through the provider/instance index", () => {
+    const { db } = setup();
+
+    const captured = captureStatements(db, () => {
+      expect(
+        listEnvironments(db, {
+          environmentProviderId: "git-worktree",
+          instanceKey: "thr_1",
+          statuses: ["provisioning", "ready", "error"],
+        }),
+      ).toEqual([]);
+    });
+    expect(captured).toHaveLength(1);
+    const details = queryPlanDetails({
+      db,
+      params: captured[0]!.params,
+      sql: captured[0]!.sql,
+    });
+    expect(details).toMatch(/USING INDEX environments_provider_instance_idx/u);
+    expect(details).not.toMatch(/SCAN environments/u);
 
     db.$client.close();
   });
@@ -641,11 +690,10 @@ describe("slow query index plans", () => {
     const { db, host, logger, project, thread } = setup();
     const now = Date.now();
     const environment = createEnvironment(db, noopNotifier, {
+      providerOwnsPath: false,
       hostId: host.id,
-      managed: true,
       projectId: project.id,
       status: "destroyed",
-      workspaceProvisionType: "managed-worktree",
     });
     insertEvents(db, noopNotifier, [
       {
