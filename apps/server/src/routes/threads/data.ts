@@ -228,23 +228,29 @@ function assertHtmlPreviewSize(relativePath: string, sizeBytes: number): void {
 function createRawFilePreviewResponse(
   result: DaemonFileReadResult,
   relativePath: string,
+  ifNoneMatch: string | undefined,
 ): Response {
   assertHtmlPreviewSize(relativePath, result.sizeBytes);
   const headers = new Headers({
-    "cache-control": RAW_FILE_NO_STORE_CACHE_CONTROL,
     "x-content-type-options": RAW_FILE_CONTENT_TYPE_OPTIONS,
   });
-  if (isHtmlPreviewPath(relativePath)) {
+  const isHtml = isHtmlPreviewPath(relativePath);
+  if (isHtml) {
+    headers.set("cache-control", RAW_FILE_NO_STORE_CACHE_CONTROL);
     headers.set("content-security-policy", GENERIC_HTML_PREVIEW_CSP);
     headers.set("content-type", RAW_FILE_HTML_CONTENT_TYPE);
   }
-  return createDaemonFileContentResponse(result, { headers });
+  return createDaemonFileContentResponse(result, {
+    headers,
+    ifNoneMatch: isHtml ? undefined : ifNoneMatch,
+  });
 }
 
 async function serveThreadStorageRawFile(
   deps: LoggedWorkSessionDeps,
   threadId: string,
   rawPath: string,
+  ifNoneMatch: string | undefined,
 ): Promise<Response> {
   const filePath = parseSafeRelativeRoutePath(rawPath);
   const target = await requireThreadStorageTarget(deps, { threadId });
@@ -253,10 +259,12 @@ async function serveThreadStorageRawFile(
     deps,
     {
       hostId: target.hostId,
+      ...(!isHtmlPreviewPath(filePath.relativePath) ? { ifNoneMatch } : {}),
       path: path.join(target.storagePath, filePath.relativePath),
       rootPath: target.storagePath,
     },
-    (result) => createRawFilePreviewResponse(result, filePath.relativePath),
+    (result) =>
+      createRawFilePreviewResponse(result, filePath.relativePath, ifNoneMatch),
   );
 }
 
@@ -264,6 +272,7 @@ async function serveThreadWorktreeRawFile(
   deps: LoggedWorkSessionDeps,
   threadId: string,
   rawPath: string,
+  ifNoneMatch: string | undefined,
 ): Promise<Response> {
   const filePath = parseSafeRelativeRoutePath(rawPath);
   const thread = requirePublicThread(deps.db, threadId);
@@ -276,10 +285,12 @@ async function serveThreadWorktreeRawFile(
     deps,
     {
       hostId: environment.hostId,
+      ...(!isHtmlPreviewPath(filePath.relativePath) ? { ifNoneMatch } : {}),
       path: path.join(environment.path, filePath.relativePath),
       rootPath: environment.path,
     },
-    (result) => createRawFilePreviewResponse(result, filePath.relativePath),
+    (result) =>
+      createRawFilePreviewResponse(result, filePath.relativePath, ifNoneMatch),
   );
 }
 
@@ -567,6 +578,7 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
       deps,
       context.req.param("id"),
       context.req.param("filePath"),
+      context.req.header("if-none-match"),
     ),
   );
 
@@ -619,6 +631,7 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
       deps,
       context.req.param("id"),
       context.req.param("filePath"),
+      context.req.header("if-none-match"),
     ),
   );
 
@@ -672,6 +685,7 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
       deps,
       {
         hostId: target.hostId,
+        ifNoneMatch: context.req.header("if-none-match"),
         path: path.join(target.storagePath, query.path),
         rootPath: target.storagePath,
       },
@@ -695,6 +709,7 @@ export function registerThreadDataRoutes(app: Hono, deps: AppDeps): void {
       deps,
       {
         hostId: environment.hostId,
+        ifNoneMatch: context.req.header("if-none-match"),
         path: query.path,
       },
       (result) =>

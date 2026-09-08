@@ -4436,6 +4436,45 @@ describe("public thread data routes", () => {
     });
   });
 
+  it("privately revalidates worktree images", async () => {
+    await withTestHarness(async (harness) => {
+      const { host, session, environment, thread } = seedThreadFixture(harness);
+      registerHostRpcResponder(harness, {
+        hostId: host.id,
+        sessionId: session.id,
+        handle: (request) => {
+          expect(request.command).toMatchObject({
+            type: "host.read_file",
+            ifNoneMatch: {
+              kind: "sha256",
+              values: ["0".repeat(64)],
+            },
+          });
+          return {
+            ok: true,
+            result: {
+              path: `${environment.path}/public/chart.png`,
+              contentEncoding: "base64",
+              mimeType: "image/png",
+              sizeBytes: 4,
+              sha256: "0".repeat(64),
+              notModified: true,
+            },
+          };
+        },
+      });
+
+      const fileResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/worktree/files/public/chart.png`,
+        { headers: { "if-none-match": `"${"0".repeat(64)}"` } },
+      );
+      expect(fileResponse.status).toBe(304);
+      expect(fileResponse.headers.get("cache-control")).toBe(
+        "private, no-cache",
+      );
+    });
+  });
+
   it("serves worktree HTML preview content as raw text/html without app bridge injection", async () => {
     await withTestHarness(async (harness) => {
       const { host } = seedHostSession(harness.deps);

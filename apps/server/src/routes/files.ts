@@ -18,6 +18,7 @@ import {
 import {
   createDaemonFileContentResponse,
   type DaemonFileReadResult,
+  requireDaemonFileContentResult,
   remapDaemonFileRouteError,
   serveDaemonFileContent,
 } from "../services/hosts/daemon-file-response.js";
@@ -217,7 +218,7 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
             : {}),
         },
       });
-      return context.json(result);
+      return context.json(requireDaemonFileContentResult(result));
     } catch (error) {
       return remapDaemonFileRouteError(error);
     }
@@ -405,24 +406,30 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
     ) {
       throw new ApiError(400, "invalid_path", "Invalid preview path", false);
     }
+    const isHtmlPath = isHtmlMimeType(mimeTypes.lookup(rawPath) || null);
     return serveDaemonFileContent(
       deps,
       {
         hostId: lease.hostId,
+        ...(!isHtmlPath
+          ? { ifNoneMatch: context.req.header("if-none-match") }
+          : {}),
         path: joinHostPath(lease.rootPath, segments),
         rootPath: lease.rootPath,
       },
       (result) => {
-        const headers = new Headers({
-          "cache-control": "no-store",
-          "x-content-type-options": "nosniff",
-        });
-        if (isHtmlMimeType(result.mimeType)) {
+        const headers = new Headers({ "x-content-type-options": "nosniff" });
+        const isHtml = isHtmlMimeType(result.mimeType);
+        if (isHtml) {
           assertRawFilesystemHtmlPreviewResult(result);
+          headers.set("cache-control", "no-store");
           headers.set("content-security-policy", HTML_PREVIEW_CSP);
           headers.set("content-type", HTML_PREVIEW_CONTENT_TYPE);
         }
-        return createDaemonFileContentResponse(result, { headers });
+        return createDaemonFileContentResponse(result, {
+          headers,
+          ifNoneMatch: isHtml ? undefined : context.req.header("if-none-match"),
+        });
       },
     );
   });
