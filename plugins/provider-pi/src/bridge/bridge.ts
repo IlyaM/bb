@@ -1204,9 +1204,17 @@ interface ExtractedInput {
   images: ImageContent[];
 }
 
+interface SelectedPiSkill {
+  chunkIndex: number;
+  end: number;
+  name: string;
+  start: number;
+}
+
 function extractInput(input: TurnStartParams["input"]): ExtractedInput {
   const chunks: string[] = [];
   const images: ImageContent[] = [];
+  const skills: SelectedPiSkill[] = [];
   for (const item of input) {
     if (!item || typeof item !== "object") continue;
     const typed = item as {
@@ -1216,7 +1224,27 @@ function extractInput(input: TurnStartParams["input"]): ExtractedInput {
       mimeType?: string;
     };
     if (typed.type === "text" && typeof typed.text === "string") {
-      chunks.push(typed.text);
+      const chunkIndex = chunks.push(typed.text) - 1;
+      for (const mention of item.type === "text" ? item.mentions : []) {
+        const resource = mention.resource;
+        if (
+          resource.kind === "command" &&
+          resource.source === "skill" &&
+          resource.trigger === "/" &&
+          mention.start >= 0 &&
+          mention.start < mention.end &&
+          mention.end <= typed.text.length &&
+          typed.text.slice(mention.start, mention.end) ===
+            `${resource.trigger}${resource.name}`
+        ) {
+          skills.push({
+            chunkIndex,
+            end: mention.end,
+            name: resource.name,
+            start: mention.start,
+          });
+        }
+      }
     } else if (typed.type === "localImage" && typeof typed.path === "string") {
       try {
         const data = readFileSync(typed.path).toString("base64");
@@ -1225,6 +1253,20 @@ function extractInput(input: TurnStartParams["input"]): ExtractedInput {
       } catch {}
     } else if (typed.type === "localFile" && typeof typed.path === "string") {
       chunks.push(`[Attached file: ${typed.path}]`);
+    }
+  }
+  const [skill] = skills;
+  if (skills.length === 1 && skill) {
+    const chunk = chunks[skill.chunkIndex];
+    if (chunk !== undefined) {
+      chunks[skill.chunkIndex] =
+        `${chunk.slice(0, skill.start)}${chunk.slice(skill.end)}`;
+      const argumentsText = chunks.join("\n");
+      const separator = argumentsText.startsWith(" ") ? "" : " ";
+      return {
+        text: `/skill:${skill.name}${argumentsText ? `${separator}${argumentsText}` : ""}`,
+        images,
+      };
     }
   }
   return { text: chunks.length > 0 ? chunks.join("\n") : undefined, images };
