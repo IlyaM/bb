@@ -122,7 +122,7 @@ interface ResolveTurnSummaryDetailsSourceRangeArgs {
 
 interface BuildThreadTimelineOptions {
   eventBudget: number;
-  includeProviderUnhandledOperations: boolean;
+  includeDiagnosticOperations: boolean;
   includeNestedRows?: boolean;
   maxInlineOutputChars: InlineOutputCharLimit;
   maxSeq: number;
@@ -133,7 +133,7 @@ interface BuildThreadTimelineOptions {
 }
 
 interface BuildTimelineTurnSummaryDetailsOptions extends TimelineTurnSummarySelection {
-  includeProviderUnhandledOperations: boolean;
+  includeDiagnosticOperations: boolean;
   providerDisplayName?: string;
 }
 
@@ -219,6 +219,7 @@ interface TimelineWindowRowsArgs {
 }
 
 interface TimelineWindowParentedRowsArgs extends TimelineWindowRowsArgs {
+  excludeDiagnosticEvents: boolean;
   maxInlineOutputChars: InlineOutputCharLimit;
   outOfBoundsChildDataByteLimit?: number;
   sequenceBounds: {
@@ -417,6 +418,7 @@ function ensureTimelineWindowParentedRows(
       const unboundedChildDataBytes =
         getStoredEventRowsByParentToolCallIdsDataBytes(db, {
           excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
+          excludeDiagnosticEvents: args.excludeDiagnosticEvents,
           maxInlineOutputChars: args.maxInlineOutputChars,
           parentToolCallIds: toolCallIdsToFetch,
           threadId: args.threadId,
@@ -429,6 +431,7 @@ function ensureTimelineWindowParentedRows(
     const childRows = listStoredEventRowsByParentToolCallIds(db, {
       beforeSequence: childSequenceBounds?.beforeSequence,
       excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
+      excludeDiagnosticEvents: args.excludeDiagnosticEvents,
       maxInlineOutputChars: args.maxInlineOutputChars,
       parentToolCallIds: toolCallIdsToFetch,
       sequenceStart: childSequenceBounds?.sequenceStart,
@@ -625,6 +628,7 @@ function selectFullTimelineEventRows(
   page: ThreadTimelinePageRequest,
   maxInlineOutputChars: InlineOutputCharLimit,
   sequenceStart: number,
+  excludeDiagnosticEvents: boolean,
 ): TimelineEventRowSelection {
   return {
     byteWindowSequenceEnd: null,
@@ -638,6 +642,7 @@ function selectFullTimelineEventRows(
     rows: listRecentStoredEventRows(db, {
       threadId: thread.id,
       excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
+      excludeDiagnosticEvents,
       maxInlineOutputChars,
       sequenceStart,
     }),
@@ -921,6 +926,7 @@ function ensureLatestTimelineHeadStateRows(
 }
 
 interface ResolveTimelineSegmentWindowArgs {
+  excludeDiagnosticEvents: boolean;
   eventBudget: number;
   page: ThreadTimelinePageRequest;
   sequenceStart: number;
@@ -945,11 +951,13 @@ function applyTimelineWindowByteBudget(
     maxInlineOutputChars: InlineOutputCharLimit;
     threadId: string;
     window: ResolvedTimelineSegmentWindow;
+    excludeDiagnosticEvents: boolean;
   },
 ): ResolvedTimelineSegmentWindow {
   const windowArgs = {
     beforeSequence: args.window.beforeSequence,
     excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
+    excludeDiagnosticEvents: args.excludeDiagnosticEvents,
     maxInlineOutputChars: args.maxInlineOutputChars,
     sequenceStart: args.window.sequenceStart,
     threadId: args.threadId,
@@ -1008,6 +1016,7 @@ function applyTimelineWindowByteBudget(
 }
 
 interface ResolveTimelineWindowBoundsArgs {
+  excludeDiagnosticEvents: boolean;
   anchors: readonly StandardTimelineSegmentAnchorRow[];
   budgetFloorSequence: number | undefined;
   minimumSequenceStart: number;
@@ -1064,6 +1073,7 @@ function resolveTimelineWindowBounds(
     budgetFloorSequence !== undefined &&
     unfinishedTurnId !== null &&
     !hasParentedEventCrossingSequence(db, {
+      excludeDiagnosticEvents: args.excludeDiagnosticEvents,
       sequence: budgetFloorSequence,
       threadId,
     })
@@ -1100,6 +1110,7 @@ function resolveTimelineWindowBounds(
           beforeSequence: sequenceStart,
           eventBudget: 0,
           excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
+          excludeDiagnosticEvents: args.excludeDiagnosticEvents,
           sequenceStart: minimumSequenceStart,
           threadId,
         }) !== undefined));
@@ -1187,11 +1198,13 @@ function resolveTimelineSegmentWindow(
       threadId,
     });
     const bounds = resolveTimelineWindowBounds(db, {
+      excludeDiagnosticEvents: args.excludeDiagnosticEvents,
       anchors: precedingAnchors,
       budgetFloorSequence: findTimelineWindowBudgetFloorSequence(db, {
         beforeSequence: cursor.anchorSeq,
         eventBudget,
         excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
+        excludeDiagnosticEvents: args.excludeDiagnosticEvents,
         sequenceStart,
         threadId,
       }),
@@ -1223,10 +1236,12 @@ function resolveTimelineSegmentWindow(
     return noAnchors;
   }
   const bounds = resolveTimelineWindowBounds(db, {
+    excludeDiagnosticEvents: args.excludeDiagnosticEvents,
     anchors: newestAnchors,
     budgetFloorSequence: findTimelineWindowBudgetFloorSequence(db, {
       eventBudget,
       excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
+      excludeDiagnosticEvents: args.excludeDiagnosticEvents,
       sequenceStart,
       threadId,
     }),
@@ -1254,11 +1269,14 @@ function selectStandardTimelineEventRows(
   eventBudget: number,
   maxInlineOutputChars: InlineOutputCharLimit,
   epochSequenceStart: number,
+  excludeDiagnosticEvents: boolean,
 ): TimelineEventRowSelection {
   const window = applyTimelineWindowByteBudget(db, {
+    excludeDiagnosticEvents,
     maxInlineOutputChars,
     threadId: thread.id,
     window: resolveTimelineSegmentWindow(db, {
+      excludeDiagnosticEvents,
       eventBudget,
       page,
       sequenceStart: epochSequenceStart,
@@ -1276,6 +1294,7 @@ function selectStandardTimelineEventRows(
       page,
       maxInlineOutputChars,
       epochSequenceStart,
+      excludeDiagnosticEvents,
     );
   }
 
@@ -1285,6 +1304,7 @@ function selectStandardTimelineEventRows(
   const windowArgs = {
     beforeSequence,
     excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
+    excludeDiagnosticEvents,
     maxInlineOutputChars,
     sequenceStart,
     threadId: thread.id,
@@ -1328,6 +1348,7 @@ function selectStandardTimelineEventRows(
         })
       : selectedRowsWithInWindowTaskState;
   const selectedRowsWithParentedContext = ensureTimelineWindowParentedRows(db, {
+    excludeDiagnosticEvents,
     maxInlineOutputChars,
     sequenceBounds:
       window.byteWindowSequenceStart === null
@@ -1506,8 +1527,7 @@ function buildThreadTimelineInternal(
     ? createThreadTimelineBuildProfileAccumulator()
     : null;
   const includeNestedRows = options.includeNestedRows ?? false;
-  const includeProviderUnhandledOperations =
-    options.includeProviderUnhandledOperations;
+  const includeDiagnosticOperations = options.includeDiagnosticOperations;
   const contextBoundarySeq = getLatestCompletedThreadContextClearSequence(db, {
     atOrBeforeSequence: options.maxSeq,
     threadId: thread.id,
@@ -1523,6 +1543,7 @@ function buildThreadTimelineInternal(
         options.eventBudget,
         options.maxInlineOutputChars,
         contextBoundarySeq ?? 0,
+        !includeDiagnosticOperations,
       ),
   );
   const rawEventRows = eventSelection.rows;
@@ -1572,7 +1593,7 @@ function buildThreadTimelineInternal(
     profile.contextWindowEventRowCount = contextWindowUsageRows.length;
   }
   const commonProjectionOptions = {
-    includeProviderUnhandledOperations,
+    includeDiagnosticOperations,
     isLatestPage: options.page.kind === "latest",
     providerDisplayName: options.providerDisplayName,
     planCommand: options.planCommand,
@@ -1780,7 +1801,7 @@ export function buildThreadConversationOutline(
       events: decodedEvents,
       options: {
         includeNestedRows: false,
-        includeProviderUnhandledOperations: false,
+        includeDiagnosticOperations: false,
         isLatestPage: true,
         providerDisplayName: options.providerDisplayName,
         providerId: thread.providerId,
@@ -1883,10 +1904,10 @@ export function buildTimelineTurnSummaryDetails(
     );
   }
 
-  const includeProviderUnhandledOperations =
-    options.includeProviderUnhandledOperations;
+  const includeDiagnosticOperations = options.includeDiagnosticOperations;
   const detailsWindow = {
     beforeSequence: options.sourceSeqEnd + 1,
+    excludeDiagnosticEvents: !includeDiagnosticOperations,
     excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
     sequenceStart: options.sourceSeqStart,
     threadId: thread.id,
@@ -1996,6 +2017,7 @@ export function buildTimelineTurnSummaryDetails(
   });
   const detailsEventDataBytes = byteLengthOfStoredEventRows(wholeItemEventRows);
   const eventRowsWithParentedChildren = ensureTimelineWindowParentedRows(db, {
+    excludeDiagnosticEvents: !includeDiagnosticOperations,
     maxInlineOutputChars: detailsInlineOutputLimit,
     outOfBoundsChildDataByteLimit:
       THREAD_TIMELINE_EVENT_DATA_BYTE_LIMIT - detailsEventDataBytes,
@@ -2027,7 +2049,7 @@ export function buildTimelineTurnSummaryDetails(
       toThreadEventWithMeta(row),
     ),
     options: {
-      includeProviderUnhandledOperations,
+      includeDiagnosticOperations,
       sourceSeqEnd: sourceRange.sourceSeqEnd,
       sourceSeqStart: projectionSourceSeqStart,
       providerDisplayName: options.providerDisplayName,
