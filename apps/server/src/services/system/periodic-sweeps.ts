@@ -3,16 +3,15 @@ import { and, eq, isNull } from "drizzle-orm";
 import {
   CLOSED_SESSION_ROW_RETENTION_MS,
   compactDatabase,
-  COMPLETED_EVENT_OUTPUT_RETENTION_MS,
   DATABASE_COMPACTION_MIN_RECLAIMABLE_BYTES,
   DATABASE_COMPACTION_MIN_RECLAIMABLE_RATIO,
   DATABASE_INCREMENTAL_VACUUM_MAX_PAGES,
   DATABASE_INCREMENTAL_VACUUM_MIN_FREELIST_PAGES,
   DEFAULT_CLOSED_SESSION_PRUNE_BATCH_SIZE,
-  DEFAULT_COMPLETED_EVENT_OUTPUT_TRUNCATION_BATCH_SIZE,
   DEFAULT_DESTROYED_ENVIRONMENT_EVENT_DETACH_BATCH_SIZE,
   DEFAULT_DESTROYED_ENVIRONMENT_PRUNE_BATCH_SIZE,
   DESTROYED_ENVIRONMENT_TTL_MS,
+  deleteExpiredRetainedEventOutputs,
   dropDeferredLegacyTables,
   getDatabaseAutoVacuumMode,
   getDatabaseCompactionStats,
@@ -20,14 +19,18 @@ import {
   getDatabaseMaintenanceActivity,
   isDatabaseMaintenanceIdle,
   listDeferredLegacyTables,
+  migrateNextCompletedEventItemOutput,
+  migrateNextLegacyImageGenerationOutput,
   environments,
   pruneClosedSessions,
   pruneDestroyedEnvironments,
+  RETAINED_EVENT_OUTPUT_TARGETS,
   runIncrementalVacuum,
   shouldCompactDatabase,
   shouldRunIncrementalVacuum,
   threads,
-  truncateCompletedEventItemOutputs,
+  DEFAULT_COMPLETED_EVENT_OUTPUT_MIGRATION_SCAN_LIMIT,
+  DEFAULT_LEGACY_IMAGE_GENERATION_MIGRATION_SCAN_LIMIT,
 } from "@bb/db";
 import type {
   AppDeps,
@@ -60,6 +63,9 @@ type PeriodicSweepDeps = LoggedPendingInteractionWorkSessionDeps & {
 };
 
 const DATABASE_MAINTENANCE_CHECK_INTERVAL_MS = 60 * 60_000;
+const COMPLETED_EVENT_OUTPUT_MIGRATION_MAX_ADVANCES_PER_SWEEP = 64;
+const RETAINED_EVENT_OUTPUT_EXPIRY_MAX_ADVANCES_PER_SWEEP = 256;
+const RETAINED_EVENT_OUTPUT_EXPIRY_BATCH_SIZE = 1;
 
 type PeriodicSweepJobCategory =
   | "retention"
@@ -347,15 +353,90 @@ async function runMachineAuthPruneSweep(
   await deps.machineAuth.pruneExpiredKeys();
 }
 
-function runCompletedEventOutputTruncationSweep(
+async function runCompletedEventOutputMigrationSweep(
   deps: LoggedPendingInteractionWorkSessionDeps,
   now: number,
-): void {
-  truncateCompletedEventItemOutputs(deps.db, {
-    createdBefore: now - COMPLETED_EVENT_OUTPUT_RETENTION_MS,
-    limit: DEFAULT_COMPLETED_EVENT_OUTPUT_TRUNCATION_BATCH_SIZE,
-    truncatedAt: now,
-  });
+): Promise<void> {
+  const migrationTargetCount = RETAINED_EVENT_OUTPUT_TARGETS.length + 1;
+  const exhaustedTargets = new Set<number>();
+  const changedThreadIds = new Set<string>();
+  let targetIndex = 0;
+  try {
+    for (
+      let advance = 0;
+      advance < COMPLETED_EVENT_OUTPUT_MIGRATION_MAX_ADVANCES_PER_SWEEP &&
+      exhaustedTargets.size < migrationTargetCount;
+      advance += 1
+    ) {
+      while (exhaustedTargets.has(targetIndex)) {
+        targetIndex = (targetIndex + 1) % migrationTargetCount;
+      }
+      const result = runEventLoopWorkSync(
+        "sweep:completed-event-output-migration:advance",
+        () => {
+          const target = RETAINED_EVENT_OUTPUT_TARGETS[targetIndex];
+          return target
+            ? migrateNextCompletedEventItemOutput(deps.db, {
+                ...target,
+                limit: DEFAULT_COMPLETED_EVENT_OUTPUT_MIGRATION_SCAN_LIMIT,
+                migratedAt: now,
+              })
+            : migrateNextLegacyImageGenerationOutput(deps.db, {
+                limit: DEFAULT_LEGACY_IMAGE_GENERATION_MIGRATION_SCAN_LIMIT,
+                migratedAt: now,
+              });
+        },
+      );
+      if (result.action === "migrated") {
+        if (!result.threadId) {
+          throw new Error("Migrated completed output has no thread");
+        }
+        changedThreadIds.add(result.threadId);
+      } else if (result.action === "complete" || result.action === "idle") {
+        exhaustedTargets.add(targetIndex);
+      }
+      targetIndex = (targetIndex + 1) % migrationTargetCount;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  } finally {
+    for (const threadId of changedThreadIds) {
+      deps.hub.notifyThread(threadId, ["history-rewritten"]);
+    }
+  }
+}
+
+async function runRetainedEventOutputExpirySweep(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+  now: number,
+): Promise<void> {
+  const changedThreadIds = new Set<string>();
+  try {
+    for (
+      let advance = 0;
+      advance < RETAINED_EVENT_OUTPUT_EXPIRY_MAX_ADVANCES_PER_SWEEP;
+      advance += 1
+    ) {
+      const { deleted, threadIds } = runEventLoopWorkSync(
+        "sweep:retained-event-output-expiry:delete",
+        () =>
+          deleteExpiredRetainedEventOutputs(deps.db, {
+            expiredAtOrBefore: now,
+            limit: RETAINED_EVENT_OUTPUT_EXPIRY_BATCH_SIZE,
+          }),
+      );
+      for (const threadId of threadIds) {
+        changedThreadIds.add(threadId);
+      }
+      if (deleted === 0) {
+        break;
+      }
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  } finally {
+    for (const threadId of changedThreadIds) {
+      deps.hub.notifyThread(threadId, ["history-rewritten"]);
+    }
+  }
 }
 
 function runClosedSessionPruneSweep(
@@ -409,8 +490,14 @@ const PERIODIC_SWEEP_JOBS: PeriodicSweepJob[] = [
   {
     cadenceMs: 0,
     category: "retention",
-    name: "completed-event-output-truncation",
-    run: runCompletedEventOutputTruncationSweep,
+    name: "completed-event-output-migration",
+    run: runCompletedEventOutputMigrationSweep,
+  },
+  {
+    cadenceMs: 0,
+    category: "retention",
+    name: "retained-event-output-expiry",
+    run: runRetainedEventOutputExpirySweep,
   },
   {
     cadenceMs: 0,

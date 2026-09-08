@@ -19,6 +19,7 @@ import type {
   TimelineConversationAttachments,
   ThreadConversationOutlineAttachmentSummary,
   TimelineRow,
+  TimelineOutputPreview,
   TimelineSystemRow,
   ThreadTimelineResponse,
   TimelineTurnSummaryDetailsResponse,
@@ -28,6 +29,8 @@ import {
   findStoredTimelineWindowByteBudgetFloor,
   findTimelineWindowBudgetFloorSequence,
   getStoredEventRowsByParentToolCallIdsDataBytes,
+  hydrateRetainedEventOutputRows,
+  hydrateRetainedEventOutputRowsWithinDataByteLimit,
   getEnvironment,
   getLatestCompletedThreadContextClearSequence,
   getThreadConversationOutlineRecord,
@@ -254,6 +257,92 @@ export function toThreadEventWithMeta(
       createdAt: row.createdAt,
     },
   };
+}
+
+function retainedOutputPreviewsByCallId(
+  events: readonly ThreadEventWithMeta[],
+  availablePreview: Extract<
+    TimelineOutputPreview["experimental_fullOutputAvailability"],
+    "available" | "detail-limit"
+  >,
+  now: number,
+): ReadonlyMap<string, TimelineOutputPreview> {
+  const previews = new Map<string, TimelineOutputPreview>();
+  for (const { event } of events) {
+    if (event.type !== "item/completed") {
+      continue;
+    }
+    const item = event.item;
+    if (item.type !== "commandExecution" && item.type !== "toolCall") {
+      continue;
+    }
+    const truncation =
+      item.type === "commandExecution"
+        ? item.truncation?.aggregatedOutput
+        : item.truncation?.result;
+    if (truncation !== undefined) {
+      previews.set(item.id, {
+        experimental_fullOutputAvailability:
+          truncation.truncatedAt > now ? availablePreview : "retention-expired",
+        totalChars: truncation.originalLength,
+      });
+    } else {
+      previews.delete(item.id);
+    }
+  }
+  return previews;
+}
+
+function applyRetainedOutputPreviews(
+  rows: readonly TimelineRow[],
+  events: readonly ThreadEventWithMeta[],
+  availablePreview: Extract<
+    TimelineOutputPreview["experimental_fullOutputAvailability"],
+    "available" | "detail-limit"
+  >,
+): TimelineRow[] {
+  const previews = retainedOutputPreviewsByCallId(
+    events,
+    availablePreview,
+    Date.now(),
+  );
+  if (previews.size === 0) {
+    return [...rows];
+  }
+
+  const applyToRows = (nestedRows: readonly TimelineRow[]): TimelineRow[] => {
+    const nextRows = nestedRows.map((row): TimelineRow => {
+      if (row.kind === "turn") {
+        if (row.children === null) {
+          return row;
+        }
+        const originalChildren = row.children;
+        const children = applyToRows(originalChildren);
+        const changed = children.some(
+          (child, index) => child !== originalChildren[index],
+        );
+        return changed ? { ...row, children } : row;
+      }
+      if (row.kind !== "work") {
+        return row;
+      }
+      if (row.workKind === "delegation") {
+        const childRows = applyToRows(row.childRows);
+        const changed = childRows.some(
+          (child, index) => child !== row.childRows[index],
+        );
+        return changed ? { ...row, childRows } : row;
+      }
+      if (row.workKind !== "command" && row.workKind !== "tool") {
+        return row;
+      }
+      const outputPreview = previews.get(row.callId);
+      return outputPreview === undefined ? row : { ...row, outputPreview };
+    });
+    return nextRows;
+  };
+
+  return applyToRows(rows);
 }
 
 function parseAcceptedInputClientRequestId(
@@ -1532,7 +1621,7 @@ function buildThreadTimelineInternal(
     atOrBeforeSequence: options.maxSeq,
     threadId: thread.id,
   });
-  const eventSelection = measureThreadTimelineStage(
+  const storedEventSelection = measureThreadTimelineStage(
     profile,
     "event-query",
     () =>
@@ -1546,6 +1635,13 @@ function buildThreadTimelineInternal(
         !includeDiagnosticOperations,
       ),
   );
+  const eventSelection =
+    options.maxInlineOutputChars === null
+      ? {
+          ...storedEventSelection,
+          rows: hydrateRetainedEventOutputRows(db, storedEventSelection.rows),
+        }
+      : storedEventSelection;
   const rawEventRows = eventSelection.rows;
   if (profile) {
     profile.eventDataBytes = byteLengthOfStoredEventRows(rawEventRows);
@@ -1633,9 +1729,10 @@ function buildThreadTimelineInternal(
         },
       }),
   );
-  const projectedTimelineRows = buildSequencePageTimelineRows(
-    timeline.rows,
-    eventSelection,
+  const projectedTimelineRows = applyRetainedOutputPreviews(
+    buildSequencePageTimelineRows(timeline.rows, eventSelection),
+    decodedRawEvents,
+    "available",
   );
   if (profile) {
     profile.projectedRowCount = projectedTimelineRows.length;
@@ -2037,6 +2134,19 @@ export function buildTimelineTurnSummaryDetails(
       threadId: thread.id,
       rows: eventRowsWithTurnStarts,
     });
+  const hydratedEventRows =
+    detailsInlineOutputLimit === null
+      ? hydrateRetainedEventOutputRowsWithinDataByteLimit(
+          db,
+          eventRowsWithBackgroundTaskState,
+          THREAD_TIMELINE_EVENT_DATA_BYTE_LIMIT,
+        )
+      : eventRowsWithBackgroundTaskState;
+  const projectionEventRows =
+    byteLengthOfStoredEventRows(hydratedEventRows) <=
+    THREAD_TIMELINE_EVENT_DATA_BYTE_LIMIT
+      ? hydratedEventRows
+      : eventRowsWithBackgroundTaskState;
   const projectionSourceSeqStart = eventRowsWithTurnStarts.reduce(
     (sourceSeqStart, row) =>
       row.type === "turn/started" && row.turnId === options.turnId
@@ -2044,10 +2154,11 @@ export function buildTimelineTurnSummaryDetails(
         : sourceSeqStart,
     sourceRange.sourceSeqStart,
   );
+  const projectionEvents = projectionEventRows.map((row) =>
+    toThreadEventWithMeta(row),
+  );
   const children = buildThreadTimelineTurnDetailsFromEvents({
-    events: eventRowsWithBackgroundTaskState.map((row) =>
-      toThreadEventWithMeta(row),
-    ),
+    events: projectionEvents,
     options: {
       includeDiagnosticOperations,
       sourceSeqEnd: sourceRange.sourceSeqEnd,
@@ -2061,7 +2172,11 @@ export function buildTimelineTurnSummaryDetails(
 
   if (children.kind !== "missing-match") {
     return {
-      rows: children.rows,
+      rows: applyRetainedOutputPreviews(
+        children.rows,
+        projectionEvents,
+        "detail-limit",
+      ),
     };
   }
 
