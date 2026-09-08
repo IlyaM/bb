@@ -2698,6 +2698,7 @@ function ThreadDetailViewInternal(props: ThreadRoutePathArgs) {
             onOpenLink={handleOpenTimelineLink}
             onOpenLocalFileLink={handleOpenTimelineLocalFileLink}
             resolveMentionLink={resolveMentionLink}
+            threadId={thread.id}
             workspaceRootPath={environment?.path ?? undefined}
           >
             <PluginPanelTabContent
