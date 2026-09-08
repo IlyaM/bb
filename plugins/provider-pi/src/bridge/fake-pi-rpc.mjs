@@ -98,6 +98,7 @@ const sessionFile = args.includes("--no-session") ? undefined : flag("--session"
 const extensionPath = flag("--extension");
 const processLogPath = process.env.FAKE_PI_PROCESS_LOG;
 const commandLogPath = process.env.FAKE_PI_COMMAND_LOG;
+const promptDumpPath = process.env.FAKE_PI_PROMPT_DUMP;
 if (sessionFile !== undefined) {
   mkdirSync(dirname(sessionFile), { recursive: true });
   if (!existsSync(sessionFile)) {
@@ -476,6 +477,9 @@ async function handle(command) {
       });
       return;
     case "prompt": {
+      if (promptDumpPath) {
+        writeFileSync(promptDumpPath, JSON.stringify(command), "utf8");
+      }
       if (isStreaming && command.streamingBehavior === "steer") {
         // A steer into a live run: pi reports the queue BEFORE it answers the
         // preflight (recorded order), then hands it to the run (a held run
