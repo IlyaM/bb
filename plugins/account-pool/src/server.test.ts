@@ -5503,10 +5503,12 @@ describe("sequential pool recovery", () => {
 
   it("keeps a paced session on its account when another request arrives during a short hold", async () => {
     const attempts: Array<string | null> = [];
+    let now = 1_800_000_000_000;
     const fixture = await createFixture({
       upstreamUrl: "https://upstream.example",
       apiKey: "sk-first",
       options: {
+        now: () => now,
         fetch: async (_input, init) => {
           attempts.push(new Headers(init?.headers).get("x-api-key"));
           return attempts.length === 2
@@ -5536,7 +5538,12 @@ describe("sequential pool recovery", () => {
             ?.status,
         ).toBe("held");
       });
-      await (await send()).text();
+      const duringHold = send();
+      now += 249;
+      const duringHoldResponse = await duringHold;
+      expect(duringHoldResponse.status).toBe(200);
+      await duringHoldResponse.text();
+      now += 1;
       await (await paced).text();
       await (await send()).text();
       expect(attempts).toEqual([
