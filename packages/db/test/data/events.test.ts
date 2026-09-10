@@ -1597,7 +1597,7 @@ describe("events", () => {
         sequenceStart: 1,
         threadId: thread.id,
       }).map((row) => row.sequence),
-    ).toEqual([1, 2]);
+    ).toEqual([1, 2, 4, 5]);
     expect(
       listRecentStoredEventRows(db, {
         maxInlineOutputChars: null,
