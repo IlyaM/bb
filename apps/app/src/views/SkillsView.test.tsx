@@ -110,11 +110,11 @@ function renderLibrarySkillRoute() {
   vi.stubGlobal("fetch", fetchMock);
   const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
   renderDom(
-    <MemoryRouter initialEntries={["/extensions/skills/library/skill_missing"]}>
+    <MemoryRouter initialEntries={["/skills/library/skill_missing"]}>
       <QueryClientWrapper>
         <Routes>
           <Route
-            path="/extensions/skills/library/:skillId"
+            path="/skills/library/:skillId"
             element={<SkillsLibrary />}
           />
         </Routes>
@@ -260,13 +260,13 @@ function renderRegistrySkillRoute() {
   return renderDom(
     <MemoryRouter
       initialEntries={[
-        "/extensions/skills/registry/owner%2Frepo%2Fuseful-skill",
+        "/skills/registry/owner%2Frepo%2Fuseful-skill",
       ]}
     >
       <QueryClientWrapper>
         <Routes>
           <Route
-            path="/extensions/skills/registry/:registrySkillId"
+            path="/skills/registry/:registrySkillId"
             element={<SkillsLibrary />}
           />
         </Routes>
@@ -895,68 +895,68 @@ describe("SkillsLibrary registry detail lifecycle", () => {
     ).toBeNull();
   });
 
-  it("opens on Browse before Library and can start a skill from the registry", async () => {
-    const registrySkill = makeRegistrySkill();
-    vi.spyOn(sdk.skills, "list").mockResolvedValue({ skills: [] });
-    const fetchMock = stubRegistryFetch(registrySkill, { list: true });
-    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
-    renderDom(
-      <MemoryRouter initialEntries={["/extensions/skills"]}>
-        <QueryClientWrapper>
-          <Routes>
-            <Route path="/extensions/skills" element={<SkillsLibrary />} />
-            <Route path="/" element={<LocationStateProbe />} />
-          </Routes>
-          <NavigateButton
-            to="/extensions/skills?view=library"
-            label="go-library"
-          />
-          <NavigateButton to="/extensions/skills" label="go-browse" />
-        </QueryClientWrapper>
-      </MemoryRouter>,
-    );
-
-    let forkButton = await screen.findByRole("button", {
-      name: "Fork Useful skill into a new bb skill",
-    });
-    expect(screen.queryByRole("tab")).toBeNull();
-    const registryListRequests = () =>
-      fetchMock.mock.calls.filter(([input]) =>
-        requestPath(input).startsWith("/api/v1/skills-registry?"),
+  it.each(["/skills", "/skills/"])(
+    "opens %s on Browse before Library and can start a skill from the registry",
+    async (path) => {
+      const registrySkill = makeRegistrySkill();
+      vi.spyOn(sdk.skills, "list").mockResolvedValue({ skills: [] });
+      const fetchMock = stubRegistryFetch(registrySkill, { list: true });
+      const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+      renderDom(
+        <MemoryRouter initialEntries={[path]}>
+          <QueryClientWrapper>
+            <Routes>
+              <Route path="/skills" element={<SkillsLibrary />} />
+              <Route path="/" element={<LocationStateProbe />} />
+            </Routes>
+            <NavigateButton to={`${path}?view=library`} label="go-library" />
+            <NavigateButton to={path} label="go-browse" />
+          </QueryClientWrapper>
+        </MemoryRouter>,
       );
-    expect(registryListRequests()).toHaveLength(1);
 
-    focusManager.setFocused(false);
-    focusManager.setFocused(true);
-    await waitFor(() => expect(registryListRequests()).toHaveLength(1));
+      let forkButton = await screen.findByRole("button", {
+        name: "Fork Useful skill into a new bb skill",
+      });
+      expect(screen.queryByRole("tab")).toBeNull();
+      const registryListRequests = () =>
+        fetchMock.mock.calls.filter(([input]) =>
+          requestPath(input).startsWith("/api/v1/skills-registry?"),
+        );
+      expect(registryListRequests()).toHaveLength(1);
 
-    fireEvent.click(screen.getByText("go-library"));
-    expect(
-      await screen.findByRole("textbox", { name: "Search skills" }),
-    ).toBeTruthy();
-    fireEvent.click(screen.getByText("go-browse"));
-    forkButton = await screen.findByRole("button", {
-      name: "Fork Useful skill into a new bb skill",
-    });
-    expect(registryListRequests()).toHaveLength(1);
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+      await waitFor(() => expect(registryListRequests()).toHaveLength(1));
 
-    fireEvent.click(forkButton);
+      fireEvent.click(screen.getByText("go-library"));
+      expect(
+        await screen.findByRole("textbox", { name: "Search skills" }),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByText("go-browse"));
+      forkButton = await screen.findByRole("button", {
+        name: "Fork Useful skill into a new bb skill",
+      });
+      expect(registryListRequests()).toHaveLength(1);
 
-    const state = JSON.parse(
-      (await screen.findByTestId("location-state")).textContent ?? "null",
-    );
-    expect(state).toEqual({
-      focusPrompt: true,
-      initialPrompt: buildRegistrySkillReferencePrompt(registrySkill),
-      replaceInitialPrompt: true,
-      createDraftKind: "skill",
-    });
-    expect(
-      fetchMock.mock.calls.some(
-        ([input]) => requestPath(input) === "/api/v1/skills-registry/install",
-      ),
-    ).toBe(false);
-  });
+      fireEvent.click(forkButton);
+
+      const state = JSON.parse(
+        (await screen.findByTestId("location-state")).textContent ?? "null",
+      );
+      expect(state).toEqual({
+        focusPrompt: true,
+        initialPrompt: buildRegistrySkillReferencePrompt(registrySkill),
+        replaceInitialPrompt: true,
+        createDraftKind: "skill",
+      });
+      expect(
+        fetchMock.mock.calls.some(
+          ([input]) => requestPath(input) === "/api/v1/skills-registry/install",
+        ),
+      ).toBe(false);
+    },
+  );
 
   it("shows the lifetime install count, not the trending window the list ranks by", async () => {
     const trendingEntry = makeRegistrySkill({ installs: 42, summary: null });
@@ -967,10 +967,10 @@ describe("SkillsLibrary registry detail lifecycle", () => {
     });
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
     renderDom(
-      <MemoryRouter initialEntries={["/extensions/skills?view=browse"]}>
+      <MemoryRouter initialEntries={["/skills?view=browse"]}>
         <QueryClientWrapper>
           <Routes>
-            <Route path="/extensions/skills" element={<SkillsLibrary />} />
+            <Route path="/skills" element={<SkillsLibrary />} />
           </Routes>
         </QueryClientWrapper>
       </MemoryRouter>,
@@ -986,10 +986,10 @@ describe("SkillsLibrary registry detail lifecycle", () => {
     stubRegistryFetch(trendingEntry, { list: true, entryFails: true });
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
     renderDom(
-      <MemoryRouter initialEntries={["/extensions/skills?view=browse"]}>
+      <MemoryRouter initialEntries={["/skills?view=browse"]}>
         <QueryClientWrapper>
           <Routes>
-            <Route path="/extensions/skills" element={<SkillsLibrary />} />
+            <Route path="/skills" element={<SkillsLibrary />} />
           </Routes>
         </QueryClientWrapper>
       </MemoryRouter>,
@@ -1033,10 +1033,10 @@ describe("SkillsLibrary registry detail lifecycle", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
     renderDom(
-      <MemoryRouter initialEntries={["/extensions/skills?view=browse"]}>
+      <MemoryRouter initialEntries={["/skills?view=browse"]}>
         <QueryClientWrapper>
           <Routes>
-            <Route path="/extensions/skills" element={<SkillsLibrary />} />
+            <Route path="/skills" element={<SkillsLibrary />} />
           </Routes>
         </QueryClientWrapper>
       </MemoryRouter>,
@@ -1093,10 +1093,10 @@ describe("SkillsLibrary registry detail lifecycle", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
     renderDom(
-      <MemoryRouter initialEntries={["/extensions/skills?view=browse"]}>
+      <MemoryRouter initialEntries={["/skills?view=browse"]}>
         <QueryClientWrapper>
           <Routes>
-            <Route path="/extensions/skills" element={<SkillsLibrary />} />
+            <Route path="/skills" element={<SkillsLibrary />} />
           </Routes>
         </QueryClientWrapper>
       </MemoryRouter>,
@@ -1169,10 +1169,10 @@ describe("SkillsLibrary registry detail lifecycle", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
     renderDom(
-      <MemoryRouter initialEntries={["/extensions/skills?view=browse"]}>
+      <MemoryRouter initialEntries={["/skills?view=browse"]}>
         <QueryClientWrapper>
           <Routes>
-            <Route path="/extensions/skills" element={<SkillsLibrary />} />
+            <Route path="/skills" element={<SkillsLibrary />} />
           </Routes>
         </QueryClientWrapper>
       </MemoryRouter>,
@@ -1292,10 +1292,10 @@ describe("RegistrySkillsBrowsePage", () => {
     });
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
     renderDom(
-      <MemoryRouter initialEntries={["/extensions/skills?view=browse"]}>
+      <MemoryRouter initialEntries={["/skills?view=browse"]}>
         <QueryClientWrapper>
           <Routes>
-            <Route path="/extensions/skills" element={<SkillsLibrary />} />
+            <Route path="/skills" element={<SkillsLibrary />} />
           </Routes>
         </QueryClientWrapper>
       </MemoryRouter>,
@@ -1331,10 +1331,10 @@ describe("SkillsLibrary registry browse paging", () => {
   function renderBrowse() {
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
     return renderDom(
-      <MemoryRouter initialEntries={["/extensions/skills?view=browse"]}>
+      <MemoryRouter initialEntries={["/skills?view=browse"]}>
         <QueryClientWrapper>
           <Routes>
-            <Route path="/extensions/skills" element={<SkillsLibrary />} />
+            <Route path="/skills" element={<SkillsLibrary />} />
           </Routes>
         </QueryClientWrapper>
       </MemoryRouter>,
