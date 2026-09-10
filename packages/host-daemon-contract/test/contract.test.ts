@@ -1168,6 +1168,7 @@ describe("host-daemon command schemas", () => {
         environmentId: "env_123",
         initiator: null,
         path: "/tmp/project",
+        setupScriptTimeoutMs: null,
       }),
     ).toMatchObject({
       type: "environment.attach",
