@@ -4244,6 +4244,8 @@ describe("public thread data routes", () => {
         limit: 1000,
         includeFiles: true,
         includeDirectories: true,
+        includeHidden: false,
+        excludeNames: expect.arrayContaining(["node_modules"]),
       });
       await reportQueuedCommandSuccess(harness, pathsCommand, {
         paths: [

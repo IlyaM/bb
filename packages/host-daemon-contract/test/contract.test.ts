@@ -1000,7 +1000,7 @@ const CONTRIBUTED_ENV = [
 
 describe("host-daemon command schemas", () => {
   it("uses the current host-daemon protocol version", () => {
-    expect(HOST_DAEMON_PROTOCOL_VERSION).toBe(197);
+    expect(HOST_DAEMON_PROTOCOL_VERSION).toBe(198);
     expect(HOST_ARTIFACT_MAX_BYTES).toBe(256 * 1024 * 1024);
   });
 
@@ -1248,11 +1248,15 @@ describe("host-daemon command schemas", () => {
         type: "host.list_files",
         path: "/tmp/workspace",
         limit: 1000,
+        includeHidden: true,
+        excludeNames: [],
       }),
     ).toMatchObject({
       type: "host.list_files",
       path: "/tmp/workspace",
       limit: 1000,
+      includeHidden: true,
+      excludeNames: [],
     });
 
     expect(
@@ -1260,6 +1264,8 @@ describe("host-daemon command schemas", () => {
         type: "host.list_paths",
         path: "/tmp/workspace",
         limit: 1000,
+        includeHidden: true,
+        excludeNames: [],
         includeFiles: true,
         includeDirectories: true,
       }),
@@ -1267,6 +1273,8 @@ describe("host-daemon command schemas", () => {
       type: "host.list_paths",
       path: "/tmp/workspace",
       limit: 1000,
+      includeHidden: true,
+      excludeNames: [],
       includeFiles: true,
       includeDirectories: true,
     });
@@ -1490,11 +1498,15 @@ describe("host-daemon command schemas", () => {
         type: "host.list_files",
         path: "/tmp/bb-data/thread-storage/thread-123",
         limit: 100,
+        includeHidden: true,
+        excludeNames: [],
       }),
     ).toMatchObject({
       type: "host.list_files",
       path: "/tmp/bb-data/thread-storage/thread-123",
       limit: 100,
+      includeHidden: true,
+      excludeNames: [],
     });
 
     expect(
@@ -1561,11 +1573,19 @@ describe("host-daemon command schemas", () => {
 
   it("rejects online-RPC-only read commands from the settled command schema", () => {
     const onlineReadCommands = [
-      { type: "host.list_files", path: "/tmp/workspace", limit: 100 },
+      {
+        type: "host.list_files",
+        path: "/tmp/workspace",
+        limit: 100,
+        includeHidden: true,
+        excludeNames: [],
+      },
       {
         type: "host.list_paths",
         path: "/tmp/workspace",
         limit: 100,
+        includeHidden: true,
+        excludeNames: [],
         includeFiles: true,
         includeDirectories: true,
       },
@@ -2681,6 +2701,46 @@ describe("host-daemon command schemas", () => {
     ).toBe(false);
   });
 
+  it("requires file list commands to state their entry filters", () => {
+    const listFiles = {
+      type: "host.list_files",
+      path: "/tmp/workspace",
+      limit: 100,
+      includeHidden: true,
+      excludeNames: ["node_modules"],
+    };
+    const listPaths = {
+      type: "host.list_paths",
+      path: "/tmp/workspace",
+      limit: 100,
+      includeFiles: true,
+      includeDirectories: true,
+      includeHidden: true,
+      excludeNames: ["node_modules"],
+    };
+    const parses = (command: Record<string, unknown>) =>
+      hostDaemonOnlineRpcCommandSchema.safeParse(command).success;
+
+    expect(parses(listFiles)).toBe(true);
+    expect(parses(listPaths)).toBe(true);
+    for (const command of [listFiles, listPaths]) {
+      const { includeHidden: _hidden, ...withoutHidden } = command;
+      const { excludeNames: _names, ...withoutNames } = command;
+      expect(parses(withoutHidden)).toBe(false);
+      expect(parses(withoutNames)).toBe(false);
+      expect(parses({ ...command, excludeNames: [""] })).toBe(false);
+      expect(
+        parses({
+          ...command,
+          excludeNames: Array.from(
+            { length: contract.FILE_LIST_EXCLUDE_NAMES_MAX + 1 },
+            (_, index) => `name-${index}`,
+          ),
+        }),
+      ).toBe(false);
+    }
+  });
+
   it("bounds file list command queries and limits", () => {
     const longQuery = "a".repeat(contract.FILE_LIST_QUERY_MAX_LENGTH + 1);
 
@@ -2690,6 +2750,8 @@ describe("host-daemon command schemas", () => {
         path: "/tmp/bb-data/thread-storage/thread-123",
         query: longQuery,
         limit: 100,
+        includeHidden: true,
+        excludeNames: [],
       }),
     ).toThrow();
 
@@ -2698,6 +2760,8 @@ describe("host-daemon command schemas", () => {
         type: "host.list_files",
         path: "/tmp/bb-data/thread-storage/thread-123",
         limit: contract.FILE_LIST_LIMIT_MAX + 1,
+        includeHidden: true,
+        excludeNames: [],
       }),
     ).toThrow();
 
@@ -2707,6 +2771,8 @@ describe("host-daemon command schemas", () => {
         path: "/tmp/workspace",
         query: longQuery,
         limit: 100,
+        includeHidden: true,
+        excludeNames: [],
       }),
     ).toThrow();
 
@@ -2715,6 +2781,8 @@ describe("host-daemon command schemas", () => {
         type: "host.list_files",
         path: "/tmp/workspace",
         limit: contract.FILE_LIST_LIMIT_MAX + 1,
+        includeHidden: true,
+        excludeNames: [],
       }),
     ).toThrow();
 
@@ -2724,6 +2792,8 @@ describe("host-daemon command schemas", () => {
         path: "/tmp/workspace",
         query: longQuery,
         limit: 100,
+        includeHidden: true,
+        excludeNames: [],
         includeFiles: true,
         includeDirectories: true,
       }),
@@ -2734,6 +2804,8 @@ describe("host-daemon command schemas", () => {
         type: "host.list_paths",
         path: "/tmp/workspace",
         limit: contract.FILE_LIST_LIMIT_MAX + 1,
+        includeHidden: true,
+        excludeNames: [],
         includeFiles: true,
         includeDirectories: true,
       }),
@@ -2744,6 +2816,8 @@ describe("host-daemon command schemas", () => {
         type: "host.list_paths",
         path: "/tmp/workspace",
         limit: 100,
+        includeHidden: true,
+        excludeNames: [],
         includeFiles: false,
         includeDirectories: false,
       }),
