@@ -175,3 +175,54 @@ needs an explicit instruction from the user, follows
 duplicates, include versions and copy-pasteable steps — and is written for a
 reader who has never seen this fork. Never mention the fork, its branches, or its
 manifest in upstream text.
+
+## Third-party skills
+
+Skills installed globally (Claude Code plugins, `~/.bb/skills/`) need no fork
+surface at all: they are already present in every worktree, on every branch. Do
+not vendor them into this repository.
+
+What needs attention is their per-repo setup, because a skill written for an
+ordinary repository assumes it may edit that repository's agent instructions.
+Here it may not: `CLAUDE.md` and `AGENTS.md` are upstream's, and modifying either
+converts `main` from add-only into modifying — a permanent conflict in the files
+that churn most, reproduced in every patch diff cut from `main`.
+
+So redirect setup output rather than declining it:
+
+| A skill wants | Write it here |
+| --- | --- |
+| an `## Agent skills` block in `CLAUDE.md` / `AGENTS.md` | `.bb/AGENTS.md` |
+| `docs/agents/*.md` | `.fork/agents/*.md` |
+| `CONTEXT.md`, `CONTEXT-MAP.md` | `.fork/CONTEXT.md`, `.fork/CONTEXT-MAP.md` |
+| `docs/adr/` | `.fork/adr/` |
+| `.scratch/` issue files | the fork's GitHub issues |
+
+Two reasons for `.fork/` over the upstream-shaped paths: it keeps the add-only
+invariant trivially true, and `fork-upstream` greps for `.fork/` when checking a
+patch diff, so a misplaced file cannot reach an upstream pull request. A file
+written to `docs/agents/` would be add-only and therefore invariant-safe, but
+invisible to that check.
+
+When a setup skill asks which issue tracker this repo uses, name the fork
+explicitly. Never let it infer the tracker from `git remote -v`: this clone has
+the upstream repository as a remote, and inferring would aim the whole issue
+workflow there.
+
+### Matt Pocock's skills
+
+Installed globally as the `mattpocock-skills` plugin, so nothing about them lives
+in this repository. `setup-matt-pocock-skills` is `disable-model-invocation`, so
+only the user can start it; when they do, it follows the redirections above.
+
+Two of its sections need the fork's answers rather than its defaults:
+
+- **Issue tracker** — GitHub, the fork's repository. Written to
+  `.fork/agents/issue-tracker.md`.
+- **Triage labels** — the five defaults are fine, created on the fork with an
+  explicit `--repo` naming it. The upstream-write guard blocks the upstream
+  spelling, but pass `--repo` anyway.
+
+Where its other skills collide with fork procedure, fork procedure wins:
+`resolving-merge-conflicts` does not govern a `fork-sync` rebase — conflicts
+there are resolved against the manifest's intent line, as `fork-sync` describes.

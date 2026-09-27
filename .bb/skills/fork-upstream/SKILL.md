@@ -31,8 +31,17 @@ branch contains nothing local:
 git diff --stat upstream/main...patch/<slug>
 ```
 
-If `.bb/AGENTS.md`, `.fork/`, or `.bb/skills/` appear in that diff, the branch
-picked up fork-local commits. Stop and report — do not hand-edit them out.
+If any of these appear in that diff, the branch picked up fork-local commits.
+Stop and report — do not hand-edit them out.
+
+- `.bb/AGENTS.md`, `.bb/skills/`, `.fork/`
+- `CONTEXT.md`, `CONTEXT-MAP.md`, `docs/agents/`, `docs/adr/` — paths third-party
+  skills default to; in this fork they belong under `.fork/`
+
+An `## Agent skills` section in `CLAUDE.md` or `AGENTS.md` is the same failure
+with a worse blast radius: those files are upstream's, and a modification there
+breaks the add-only invariant that keeps `main` conflict-free. Report it rather
+than shipping it.
 
 ## 2. Verify it stands alone
 

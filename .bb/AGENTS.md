@@ -17,5 +17,10 @@ This is a fork of get-bb/bb. `upstream` is get-bb/bb, `origin` is the fork.
   `--repo IlyaM/bb` to every mutating `gh` command. Never file, comment on,
   close, or merge anything on `get-bb/bb` without an explicit instruction from
   the user.
+- Fork-local agent configuration lives under `.fork/`: `.fork/agents/` for
+  per-repo skill configuration, `.fork/CONTEXT.md` and `.fork/adr/` for domain
+  docs. A skill that wants these at the repo root or under `docs/` writes them
+  here instead, and its instruction block goes in this file — never an
+  `## Agent skills` section in `CLAUDE.md` or `AGENTS.md`.
 - Read [.fork/GUIDE.md](../.fork/GUIDE.md) before syncing, submitting upstream,
   or deciding where a local change belongs.
