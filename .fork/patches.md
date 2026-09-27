@@ -7,7 +7,7 @@ change exists, not as a summary of the diff.
 | Branch | Intent | Issue | Upstream |
 | --- | --- | --- | --- |
 | local/observability-baseline | The observability effort needs its measurements re-takeable rather than re-derived, so IlyaM/bb#4's numbers and IlyaM/bb#8's comparison run from committed scripts. They import @bb/db and @bb/server-contract, so they live inside apps/*/scripts rather than under .fork/. | IlyaM/bb#4 | never |
-| local/observability-hack | Throwaway probe for IlyaM/bb#3: unbounded streaming and always-expanded rows, to find out which of bb's deliberate delays and its collapse-by-default actually carries the feeling of being behind. Never submitted, never rebased for merit — deleted once the ticket is answered. | IlyaM/bb#3 | never |
+| local/observability-hack | Throwaway probe for IlyaM/bb#3: unbounded streaming and always-expanded rows, to find out which of bb's deliberate delays and its collapse-by-default actually carries the feeling of being behind. Never submitted, never rebased for merit. IlyaM/bb#3 is answered but the branch outlives it: IlyaM/bb#8 measures against it, so delete only once that is done. | IlyaM/bb#3 | never |
 
 `main` is not listed: it is always the base of the rebuild.
 
