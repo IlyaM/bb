@@ -34,10 +34,18 @@ branch is unaccounted for, and both corrupt the rest of this run.
 
 ## 1. Advance `main`
 
+`main` is checked out in the main checkout, and git refuses the same branch in
+two worktrees, so do not switch to it. Advance it where it lives:
+
 ```
-git switch main
-git merge upstream/main
+MAIN=$(git worktree list --porcelain \
+  | awk '/^worktree /{w=$2} /^branch refs\/heads\/main$/{print w}')
+git -C "$MAIN" merge --ff-only upstream/main
 ```
+
+If `$MAIN` comes back empty, no worktree holds `main`; switch to it here instead.
+If the fast-forward is refused, `main` has commits upstream does not — report that
+rather than merging, because `main` is supposed to be upstream plus added files.
 
 This must not conflict. `main` carries only files upstream does not have. If it
 conflicts, something edited an upstream file on `main` — stop, report which file,
@@ -95,6 +103,10 @@ Discard and regenerate. Do not merge upstream into the existing `fork`.
 ```
 git switch -C fork main
 ```
+
+This leaves the current worktree on `fork`, which is what you want for running
+the result. If `fork` is checked out in another worktree, `-C` fails there too —
+rebuild it from that worktree, or remove it first.
 
 Then, in manifest order, for each branch:
 

@@ -31,12 +31,39 @@ worth submitting has to be reshaped.
 
 ```
 git fetch upstream
-git switch main && git merge --ff-only upstream/main
-git switch -c patch/<slug> main
+git branch patch/<slug> main
+git switch patch/<slug>
 ```
 
 Branch off `main`, never off `fork` and never off another patch. If the change
 truly requires another patch, see the dependency rule in the guide first.
+
+Do not check out `main` to do this. `main` is checked out in the main checkout,
+and git refuses the same branch in two worktrees:
+`fatal: 'main' is already used by worktree at ...`. `git branch <new> main`
+creates the branch at `main` without checking `main` out, which works from any
+worktree.
+
+If `main` is behind upstream, cut the branch anyway — `fork-sync` rebases every
+patch onto the advanced `main` on the next sync. Advancing `main` itself has to
+happen where `main` is checked out, and is `fork-sync`'s job, not this skill's.
+
+## Inside a bb thread
+
+A bb thread starts its worktree on its own branch, `bb/<slug>-thr_...`, cut from
+the default branch. Switching away from it is safe: bb records the branch it
+observes in a worktree rather than pinning one, so it follows the patch branch.
+
+- **Let the switch happen.** bb thread branches are disposable; a patch branch has
+  to outlive the thread that started it. The abandoned `bb/...` branch is left at
+  `main`'s tip with no commits of its own, and the next branch sweep removes it
+  because it is fully contained in upstream.
+- **Returning to a patch in a later thread**: that thread's worktree is based on
+  the default branch, not on your patch. Run `git switch patch/<slug>` before
+  anything else, and do not cut a second branch for the same work.
+- **Do not rename the thread branch** into `patch/<slug>` as a shortcut. It works,
+  but it leaves the thread id embedded in a long-lived branch name, and the
+  manifest then reads as if a patch belongs to one thread.
 
 ## 3. Record it
 
