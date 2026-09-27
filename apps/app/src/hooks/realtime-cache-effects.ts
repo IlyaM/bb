@@ -43,8 +43,8 @@ export function resolveThreadInvalidationDebounce(
   isCoarsePointer: boolean,
 ): ThreadInvalidationDebounce {
   return isCoarsePointer
-    ? { debounceMs: 150, maxWaitMs: 400 }
-    : { debounceMs: 50, maxWaitMs: 200 };
+    ? { debounceMs: 0, maxWaitMs: 0 }
+    : { debounceMs: 0, maxWaitMs: 0 };
 }
 
 function detectCoarsePointer(): boolean {

@@ -186,6 +186,25 @@ function visitForLiveFrontierAutoExpand(
   }
 }
 
+const HACK_EXPAND_EVERY_ROW: boolean = true;
+
+function visitForHackExpandEveryRow(
+  rows: readonly ThreadTimelineViewRow[],
+  ids: Set<string>,
+): void {
+  for (const row of rows) {
+    if (isRowExpandable(row)) {
+      ids.add(row.id);
+    }
+    if (row.kind === "work" && row.workKind === "delegation") {
+      visitForHackExpandEveryRow(row.childRows, ids);
+    }
+    if (row.kind === "bundle-summary" || row.kind === "step-summary") {
+      visitForHackExpandEveryRow(row.children, ids);
+    }
+  }
+}
+
 export function collectTimelineAutoExpansionRowIds({
   rows,
   scopeActive,
@@ -194,6 +213,9 @@ export function collectTimelineAutoExpansionRowIds({
   const liveExpandedRowIds = new Set<string>();
   visitForTerminalFrontierAutoExpand(rows, terminalFrontierRowIds);
   visitForLiveFrontierAutoExpand(rows, scopeActive, liveExpandedRowIds);
+  if (HACK_EXPAND_EVERY_ROW) {
+    visitForHackExpandEveryRow(rows, liveExpandedRowIds);
+  }
   return {
     liveExpandedRowIds,
     terminalFrontierRowIds,

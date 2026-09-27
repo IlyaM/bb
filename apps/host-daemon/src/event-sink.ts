@@ -8,7 +8,7 @@ import { normalizeCaughtError, runtimeErrorLogFields } from "./error-utils.js";
 import type { HostDaemonLogger } from "./logger.js";
 import { ServerResponseError } from "./server-client.js";
 
-const DEFAULT_DEBOUNCE_MS = 100;
+const DEFAULT_DEBOUNCE_MS = 0;
 
 const QUEUE_DEPTH_WARN_THRESHOLD = 512;
 const QUEUE_DEPTH_WARN_MIN_AGE_MS = 5_000;

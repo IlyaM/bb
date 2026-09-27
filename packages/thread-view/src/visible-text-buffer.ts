@@ -1,3 +1,5 @@
+const HACK_FLUSH_ALL: boolean = true;
+
 export interface VisibleTextBuffer {
   pendingChunks: string[];
   pendingLength: number;
@@ -35,6 +37,12 @@ export function appendVisibleTextBuffer(
     return false;
   }
 
+  if (HACK_FLUSH_ALL) {
+    flushVisibleTextBuffer(buffer);
+    appendVisibleSegment(buffer, delta);
+    return true;
+  }
+
   const lastNewlineIndex = delta.lastIndexOf("\n");
   if (lastNewlineIndex === -1) {
     buffer.pendingChunks.push(delta);
@@ -68,7 +76,7 @@ export function setVisibleTextBuffer(
   buffer.visibleTextCache = null;
 
   if (text.length > 0) {
-    if (flushTrailingPartial) {
+    if (flushTrailingPartial || HACK_FLUSH_ALL) {
       buffer.visibleChunks.push(text);
       buffer.visibleLength = text.length;
       buffer.visibleTextCache = text;
