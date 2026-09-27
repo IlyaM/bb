@@ -14,8 +14,12 @@ Read [.fork/GUIDE.md](../../../.fork/GUIDE.md) if you have not already.
 
 Ask in order:
 
-1. **Does it edit a file upstream owns?** No — it belongs on `main` as added
-   files, and no branch is needed. Commit directly to `main`. Yes — continue.
+1. **Does a fresh thread need it in order to start?** Only what bb reads from a
+   checkout unasked belongs on `main`: `.bb/AGENTS.md`, `.bb/skills/`, the
+   `.fork/` docs, the manifest. Yes — commit directly to `main`, add-only. No —
+   continue, **even when the change is add-only.** Being add-only permits a
+   change on `main`; it never justifies one. A script, benchmark, harness, or
+   fixture is work product and takes a branch.
 2. **Might it ever go upstream?** Yes — `patch/<slug>`. No — `local/<slug>`.
 3. **Could it avoid editing upstream files entirely** as a private plugin under
    `~/.bb/plugins`, a `.bb/` file, or configuration? If the result is equivalent,
@@ -61,6 +65,12 @@ observes in a worktree rather than pinning one, so it follows the patch branch.
 - **Returning to a patch in a later thread**: that thread's worktree is based on
   the default branch, not on your patch. Run `git switch patch/<slug>` before
   anything else, and do not cut a second branch for the same work.
+- **A `main`-destined commit cannot be made here directly.** `main` is checked
+  out in the main checkout, so commit it on the branch this worktree is on and
+  then fast-forward `main` onto it — `git -C <main checkout> merge --ff-only
+  <sha>` — in the same session. Leaving it on the `bb/...` branch strands it:
+  `fork-sync` reconciles only `patch/*` and `local/*`, so it never carries a
+  `bb/*` branch forward.
 - **Do not rename the thread branch** into `patch/<slug>` as a shortcut. It works,
   but it leaves the thread id embedded in a long-lived branch name, and the
   manifest then reads as if a patch belongs to one thread.

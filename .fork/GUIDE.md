@@ -18,7 +18,7 @@ the two shapes get different homes and different treatment.
 
 | Branch | Role |
 | --- | --- |
-| `main` | Fork baseline: upstream merged forward, plus add-only local support. |
+| `main` | Fork baseline: upstream merged forward, plus the add-only local support a fresh thread cannot start without. |
 | `patch/<slug>` | A change that might go upstream. One concern, PR-shaped. |
 | `local/<slug>` | A change that never goes upstream and edits upstream files. |
 | `fork` | Integration branch. Rebuilt from the others each sync. What you run. |
@@ -39,14 +39,27 @@ and every conflict is re-resolved from scratch.
 
 Ask in this order.
 
-1. **Does it edit a file upstream owns?** No — it belongs on `main` as added
-   files. Yes — continue.
+1. **Does a fresh thread need it in order to start?** `main` is what
+   `resolveDefaultWorktreeBaseBranch` hands every new worktree, so anything bb
+   reads from a checkout without being asked — `.bb/AGENTS.md`, `.bb/skills/`,
+   the `.fork/` docs, this manifest — has to be on `main` or threads start
+   without it. Yes — commit to `main`, and it must be add-only as well. No —
+   continue, **even when the change is add-only.**
 2. **Might it ever go upstream?** Yes — `patch/<slug>`, shaped as a PR from the
    first commit. No — `local/<slug>`.
 3. **Could it be expressed without editing upstream files at all?** A private
    plugin under `~/.bb/plugins`, a `.bb/` file, or configuration has no merge
    surface. Prefer that over a `local/` branch when the result is equivalent;
    do not contort a real code change to fit.
+
+Add-only is a *constraint* on what may sit on `main`, never a reason to put it
+there. A script, benchmark, harness, or fixture is work product: invariant-safe,
+and still a branch — on a `local/` branch when it has to sit inside a workspace
+package to resolve its `@bb/*` imports, which `.fork/` cannot offer. Two costs
+fall on work product that lands on `main` anyway.
+Every patch is cut from `main`, so it rides along in each one's tree. And
+`fork-upstream` greps a patch diff for `.fork/`, so work product parked in a
+directory upstream owns — `apps/*/scripts`, say — is invisible to that check.
 
 A `patch/` branch that conflicts on most syncs is not a mistake and does not need
 reshaping. It is a signal about timing: get it upstream sooner, or re-scope it
@@ -90,6 +103,13 @@ git rebase --onto upstream/main main patch/<slug>
 
 That rebase is always clean, because patches never touch the support files. The
 `fork-upstream` skill does it.
+
+A thread worktree cannot commit to `main` — git refuses a branch that is checked
+out in the main checkout. So a `main`-destined commit made inside a thread has to
+be fast-forwarded onto `main` in the same session, or left for `fork-sync` to
+carry. Never park it on the `bb/<slug>-thr_...` branch and move on: `fork-sync`
+reconciles only `patch/*` and `local/*` against the manifest, so a `bb/*` branch
+is invisible to it and the commit is never carried forward at all.
 
 ## Independence is the invariant
 
