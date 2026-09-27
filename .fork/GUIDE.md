@@ -130,3 +130,48 @@ its upstream status. Two patterns matter.
 | `fork-patch` | Start a local change: pick its home, cut the branch, add its manifest row. |
 | `fork-sync` | Fetch upstream, advance `main`, rebase patches, rebuild `fork`, report. |
 | `fork-upstream` | Turn a `patch/` branch into an upstream pull request. |
+
+## Tracking work
+
+Work is tracked as GitHub issues on the fork, `IlyaM/bb`. Issues on the fork are
+private to this fork: they do not appear upstream, and nothing about them reaches
+`get-bb/bb`.
+
+Four things make that the default rather than a hope:
+
+| Guard | What it does |
+| --- | --- |
+| Issues enabled on `IlyaM/bb` | GitHub disables Issues on new forks; without this the fork is not a valid target at all. |
+| `remote.origin.gh-resolved = base` | `gh` resolves this clone to the fork. Previously `remote.upstream.gh-resolved` was set, so a bare `gh issue create` filed upstream. |
+| `upstream` push URL set to `DISABLED_use_origin` | `git push upstream` fails at the remote instead of reaching GitHub. |
+| `~/.claude/hooks/bb-upstream-guard.sh` | A `PreToolUse` Bash hook that denies mutating `gh` and `git push` commands aimed at `get-bb/bb`, and denies a mutating `gh` command with no explicit `--repo` in any clone that has `get-bb/bb` as a remote. |
+
+The hook keys on the string `get-bb/bb`, not on a directory, so it applies in
+every worktree and every branch and stays inert in unrelated projects.
+
+It stops accidents, not determination: the escape hatch is a
+`BB_UPSTREAM_WRITE=1` prefix on the command, which an agent can add. Treat it as
+a deliberateness check. Adding that prefix without an explicit instruction from
+the user to write upstream is a violation of these conventions, not a workaround.
+
+### Conventions
+
+- Pass `--repo IlyaM/bb` to every mutating `gh` command, even though the default
+  now resolves there. Explicit beats inherited, and the hook enforces it.
+- Label issues to mirror the branch prefixes: `patch` for work that might go
+  upstream, `local` for work that never will. The label answers the same routing
+  question as the branch name.
+- Put the issue in the manifest row as `IlyaM/bb#N`, with the owner. Inside an
+  upstream pull request a bare `#N` resolves against `get-bb/bb` and would link
+  a stranger's issue.
+- Close the fork issue when its patch lands upstream or is abandoned, in the same
+  step that removes the manifest row.
+
+### Filing upstream
+
+Filing an issue or pull request on `get-bb/bb` is a separate, deliberate act. It
+needs an explicit instruction from the user, follows
+[docs/filing-issues.md](../docs/filing-issues.md) — reproduce first, check for
+duplicates, include versions and copy-pasteable steps — and is written for a
+reader who has never seen this fork. Never mention the fork, its branches, or its
+manifest in upstream text.

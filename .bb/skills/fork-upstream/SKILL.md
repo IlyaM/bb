@@ -49,7 +49,12 @@ top of `fork` is not independent and is not ready to submit.
 
 Follow [.github/PULL_REQUEST_TEMPLATE.md](../../../.github/PULL_REQUEST_TEMPLATE.md):
 root cause, the change, and verification that demonstrates it. Add `Fixes #N`
-when it closes an upstream issue. End the body with `> AGENT GENERATED`.
+when it closes an **upstream** issue. End the body with `> AGENT GENERATED`.
+
+Never put a bare `#N` from the fork's tracker in upstream text: inside a
+`get-bb/bb` pull request GitHub resolves it against upstream and links an
+unrelated issue. The fork's issues are private to the fork and have no place in
+an upstream pull request at all — leave them out rather than qualifying them.
 
 The manifest's intent line is the starting point for the motivation section, but
 write the PR for a reviewer who has never seen this fork. Do not mention the fork,
@@ -61,8 +66,12 @@ After approval:
 
 ```
 git push -u origin patch/<slug>
-gh pr create --repo get-bb/bb --base main --head <your-gh-user>:patch/<slug>
+BB_UPSTREAM_WRITE=1 gh pr create --repo get-bb/bb --base main --head IlyaM:patch/<slug>
 ```
+
+The `BB_UPSTREAM_WRITE=1` prefix is required: a `PreToolUse` hook denies mutating
+`gh` commands aimed at `get-bb/bb` without it. Adding the prefix asserts the user
+explicitly asked for this pull request. Do not add it on your own initiative.
 
 ## 5. Record it
 

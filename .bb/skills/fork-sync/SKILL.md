@@ -58,8 +58,14 @@ upstream column. When a patch has fully landed:
 git branch -D patch/<slug>
 ```
 
-and delete its manifest row. When only part of it landed, do not delete anything:
-report it and let the user decide.
+and delete its manifest row. Close the fork issue in the same step:
+
+```
+gh issue close <N> --repo IlyaM/bb --comment "Landed upstream."
+```
+
+When only part of it landed, do not delete or close anything: report it and let
+the user decide.
 
 ## 3. Rebase each surviving branch
 

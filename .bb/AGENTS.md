@@ -13,5 +13,9 @@ This is a fork of get-bb/bb. `upstream` is get-bb/bb, `origin` is the fork.
   upstream, `local/<slug>` if it never will. One concern per branch.
 - Record fork conventions here, not in `AGENTS.md` or `CLAUDE.md` — upstream owns
   those files.
+- Issues and pull requests for local work live on the fork. Pass
+  `--repo IlyaM/bb` to every mutating `gh` command. Never file, comment on,
+  close, or merge anything on `get-bb/bb` without an explicit instruction from
+  the user.
 - Read [.fork/GUIDE.md](../.fork/GUIDE.md) before syncing, submitting upstream,
   or deciding where a local change belongs.
