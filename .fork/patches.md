@@ -6,6 +6,7 @@ change exists, not as a summary of the diff.
 
 | Branch | Intent | Issue | Upstream |
 | --- | --- | --- | --- |
+| local/observability-hack | Throwaway probe for IlyaM/bb#3: unbounded streaming and always-expanded rows, to find out which of bb's deliberate delays and its collapse-by-default actually carries the feeling of being behind. Never submitted, never rebased for merit — deleted once the ticket is answered. | IlyaM/bb#3 | never |
 
 `main` is not listed: it is always the base of the rebuild.
 
