@@ -231,11 +231,7 @@ function ExpandableTimelineRowComponent({
         timelineRowHeaderClassName(horizontalPadding),
         headerClassName,
       )}
-      contentClassName={cn(
-        horizontalPaddingClass,
-        "pb-1 pt-0.5",
-        "max-h-[24rem] overflow-y-auto",
-      )}
+      contentClassName={cn(horizontalPaddingClass, "pb-1 pt-0.5")}
       renderBody={renderBody}
     />
   );

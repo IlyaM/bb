@@ -202,6 +202,9 @@ function visitForHackExpandEveryRow(
     if (row.kind === "bundle-summary" || row.kind === "step-summary") {
       visitForHackExpandEveryRow(row.children, ids);
     }
+    if (row.kind === "turn" && row.children !== null) {
+      visitForHackExpandEveryRow(row.children, ids);
+    }
   }
 }
 
