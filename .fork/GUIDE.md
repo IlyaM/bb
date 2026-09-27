@@ -147,7 +147,28 @@ Four things make that the default rather than a hope:
 | `~/.claude/hooks/bb-upstream-guard.sh` | A `PreToolUse` Bash hook that denies mutating `gh` and `git push` commands aimed at `get-bb/bb`, and denies a mutating `gh` command with no explicit `--repo` in any clone that has `get-bb/bb` as a remote. |
 
 The hook keys on the string `get-bb/bb`, not on a directory, so it applies in
-every worktree and every branch and stays inert in unrelated projects.
+every worktree and every branch of this fork. It runs on every Bash command in
+every project, but denies only three shapes:
+
+- a command that spells out `get-bb/bb`, from any directory;
+- a mutating `gh` command naming no repository, in a clone that has `get-bb/bb`
+  as a remote;
+- a push to a remote named `upstream` whose URL actually resolves to
+  `get-bb/bb`.
+
+The URL check in the third one is why your other forks keep working: pushing to a
+remote named `upstream` elsewhere is untouched, because the remote name alone is
+not the signal.
+
+One gap it cannot close is a push run from outside this fork with `git -C`
+pointing into it — the remote lookup uses the hook's working directory, not the
+target. The `upstream` remote's push URL is set to `DISABLED_use_origin`, so such
+a push fails at the remote instead.
+
+A consequence worth knowing: the hook reads command *text*, so writing
+documentation or tests that quote a blocked command trips it even though nothing
+would run. Keep the verb and the remote name on separate lines, or build the
+string from a variable.
 
 It stops accidents, not determination: the escape hatch is a
 `BB_UPSTREAM_WRITE=1` prefix on the command, which an agent can add. Treat it as
