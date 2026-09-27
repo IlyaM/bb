@@ -24,3 +24,20 @@ This is a fork of get-bb/bb. `upstream` is get-bb/bb, `origin` is the fork.
   `## Agent skills` section in `CLAUDE.md` or `AGENTS.md`.
 - Read [.fork/GUIDE.md](../.fork/GUIDE.md) before syncing, submitting upstream,
   or deciding where a local change belongs.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub issues on the fork, `IlyaM/bb`, always with an explicit `--repo`.
+See [.fork/agents/issue-tracker.md](../.fork/agents/issue-tracker.md).
+
+### Triage labels
+
+The five canonical roles, label strings unchanged, on `IlyaM/bb`.
+See [.fork/agents/triage-labels.md](../.fork/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context: `.fork/CONTEXT.md` and `.fork/adr/`.
+See [.fork/agents/domain.md](../.fork/agents/domain.md).
