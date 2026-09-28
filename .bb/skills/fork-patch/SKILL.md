@@ -81,7 +81,7 @@ Add a row to [.fork/patches.md](../../../.fork/patches.md) on `main`, not on the
 new branch:
 
 ```
-| patch/<slug> | <why this change exists> | IlyaM/bb#N | not submitted |
+| patch/<slug> | <why this change exists> | IlyaM/bb#N | not submitted | hold |
 ```
 
 Track the work as a fork issue when it is worth tracking:
@@ -94,6 +94,11 @@ Always pass `--repo IlyaM/bb`. Label `patch` or `local` to match the branch
 prefix. Write the issue as `IlyaM/bb#N` in the manifest, with the owner — a bare
 `#N` resolves against `get-bb/bb` wherever the text later lands. If the work has
 no issue, leave the column empty.
+
+Set `Integration` to `hold` for every new `patch/` branch; include it only after
+a deliberate selection. Set it to `include` for a new `local/` branch unless
+the user explicitly wants to hold that branch. Recording a branch does not
+select a patch for the `fork` rebuild.
 
 The intent line is what a future rebase conflict gets resolved against. Write the
 reason the change exists, not a summary of the diff. "Search index warm-up so

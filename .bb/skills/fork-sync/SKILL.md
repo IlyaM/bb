@@ -28,9 +28,11 @@ Confirm the manifest matches reality:
 git branch --list 'patch/*' 'local/*'
 ```
 
-If the branch list and the manifest table disagree, **stop and report the drift**
-before changing anything. A stale manifest means an intent line is missing or a
-branch is unaccounted for, and both corrupt the rest of this run.
+If the branch list and the manifest table disagree, or any row lacks a valid
+`Integration` value (`include` or `hold`), **stop and report the drift** before
+changing anything. A stale manifest means an intent line or integration decision
+is missing, or a branch is unaccounted for, and these corrupt the rest of this
+run.
 
 ## 1. Advance `main`
 
@@ -77,10 +79,11 @@ the user decide.
 
 ## 3. Rebase each surviving branch
 
-For each `patch/*` and `local/*` branch, in manifest order:
+For each surviving `patch/*` and `local/*` branch, including those marked
+`hold`, in manifest order:
 
 ```
-git rebase main patch/<slug>
+git rebase main <branch>
 ```
 
 On conflict:
@@ -108,11 +111,14 @@ This leaves the current worktree on `fork`, which is what you want for running
 the result. If `fork` is checked out in another worktree, `-C` fails there too —
 rebuild it from that worktree, or remove it first.
 
-Then, in manifest order, for each branch:
+Then, in manifest order, merge only branches marked `include`:
 
 ```
-git merge --no-ff patch/<slug>
+git merge --no-ff <branch>
 ```
+
+Leave `hold` branches out of `fork`; do not infer inclusion from their presence
+in the manifest or from a successful rebase.
 
 rerere replays resolutions from previous rebuilds. If a merge conflicts in a way
 rerere does not resolve, resolve it the same way as in step 3 and note it — that
@@ -124,8 +130,9 @@ about where it stopped is better than a silently dropped patch.
 
 ## 5. Report
 
-A table, one row per branch: branch, rebase result, conflicted files, checks,
-upstream status. Then call out:
+A table, one row per branch: branch, integration decision (`include` or `hold`),
+rebase result, conflicted files, checks, upstream status, and merge result
+(`held` for branches not merged). Then call out:
 
 - Any branch that conflicted this sync **and** in the previous two. Recommend
   submitting it upstream, re-scoping it behind an existing seam, or dropping it.

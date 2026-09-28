@@ -29,6 +29,10 @@ files upstream lacks, `git merge upstream/main` into `main` can never conflict.
 `fork` is write-only output. Never commit to it, never cherry-pick out of it. It
 exists so that no patch is ever trapped inside a merge history: rebuilding it
 from scratch each sync is what keeps every patch independently submittable.
+The manifest records every branch, but only rows marked `include` are merged
+into `fork`. New `patch/` branches start on `hold` until deliberately selected;
+new `local/` branches start on `include` unless explicitly held. Both statuses
+still participate in sync and rebasing.
 
 The failure mode this avoids is the default one — keeping patches as history on a
 long-lived branch you merge upstream into. After a few merges each idea is
@@ -140,8 +144,9 @@ tedious enough to skip, and skipping it is how the fork drifts.
 
 ## Reading a sync report
 
-`fork-sync` reports, per patch: whether it rebased cleanly, what checks ran, and
-its upstream status. Two patterns matter.
+`fork-sync` reports, per branch: whether it rebased cleanly, what checks ran,
+its integration decision and merge result, and its upstream status. Two patterns
+matter.
 
 - **Conflicted this sync, cleanly resolved.** Normal. rerere will remember it.
 - **Conflicts nearly every sync.** The patch is tracking a moving target. Submit
@@ -152,7 +157,7 @@ its upstream status. Two patterns matter.
 | Skill | Use |
 | --- | --- |
 | `fork-patch` | Start a local change: pick its home, cut the branch, add its manifest row. |
-| `fork-sync` | Fetch upstream, advance `main`, rebase patches, rebuild `fork`, report. |
+| `fork-sync` | Fetch upstream, advance `main`, rebase recorded branches, merge only selected branches into `fork`, report. |
 | `fork-upstream` | Turn a `patch/` branch into an upstream pull request. |
 
 ## Tracking work

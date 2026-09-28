@@ -12,8 +12,10 @@ This is a fork of get-bb/bb. `upstream` is get-bb/bb, `origin` is the fork.
   it only adds files under `.fork/`. Before creating a branch, check
   `.fork/patches.md` for one that already owns the work. Reserve `main` for
   fork support a fresh worktree needs before anyone asks for it.
-- `fork` is derived and force-rebuilt every sync. Never commit to it — commits
-  made there are destroyed.
+- `fork` is derived and force-rebuilt every sync from `main` plus only branches
+  marked `include` in `.fork/patches.md`. New `patch/` branches start as `hold`;
+  they enter `fork` only after deliberate selection. Never commit to `fork` —
+  commits made there are destroyed.
 - New work goes on its own branch off `main`: `patch/<slug>` if it might go
   upstream, `local/<slug>` if it never will. One concern per branch.
 - Record fork conventions here, not in `AGENTS.md` or `CLAUDE.md` — upstream owns
