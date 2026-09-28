@@ -231,16 +231,17 @@ reasoningSummary | plan, text }` synthesizes the channel's `item/started`
   schemas strip them; old stored events remain readable without a migration.
 
 - **Streamed-text batching.** Coalescing is assembler policy, not bridge
-  policy: within a per-stream flush window (`textDeltaFlushMs`, 100ms
-  default, 0 disables) consecutive streamed-text events — assistant/
+  policy: the default `textDeltaFlushMs` is 0, so every streamed-text event
+  emits immediately even if no later provider event arrives. When explicitly
+  set above 0, consecutive streamed-text events — assistant/
   reasoning/plan deltas and command/fileChange output deltas, including the
   ones the assembler's own snapshot diffing produces — concatenate into a
   single event of the same type, so chatty providers stop producing one
   timeline event per token. The first delta of a fresh stream emits
   immediately (time-to-first-token unchanged); buffers flush trailing-edge
-  with no timers (the thread's next traffic once the window elapses, stream
-  close, session boundaries); and every non-batchable event is an ordering
-  barrier — coalescing never reorders text relative to item opens/closes,
+  via the required `onTextEvents` callback when the window elapses, even if
+  the provider goes quiet (or sooner on stream close or an ordering barrier);
+  every non-batchable event is an ordering barrier — coalescing never reorders text relative to item opens/closes,
   turn events, errors, or other streams' flushes. An output `reset` is never
   absorbed into a concatenation; `session.reset` flushes buffered text
   (assembled against the old session's still-valid ids) before dropping the

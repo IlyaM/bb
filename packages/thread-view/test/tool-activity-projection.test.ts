@@ -414,7 +414,7 @@ describe("tool activity projection", () => {
     ]);
   });
 
-  it("hides partial command output until a newline or terminal flush", () => {
+  it("shows partial command output without waiting for a newline or completion", () => {
     const state = createProjectionState();
 
     beginCommandWithoutOutput(state);
@@ -425,7 +425,7 @@ describe("tool activity projection", () => {
       seq: 2,
     });
 
-    expect(activeCommandMessage(state)?.output).toBe("");
+    expect(activeCommandMessage(state)?.output).toBe("partial");
 
     applyCommandOutput(state, {
       appendOutput: true,
@@ -434,7 +434,7 @@ describe("tool activity projection", () => {
       seq: 3,
     });
 
-    expect(activeCommandMessage(state)?.output).toBe("partial line\n");
+    expect(activeCommandMessage(state)?.output).toBe("partial line\ntrailing");
 
     completeCommandWithoutOutput(state);
 

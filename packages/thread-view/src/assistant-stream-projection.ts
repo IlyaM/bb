@@ -7,7 +7,6 @@ import {
   type ToolActivityProjectionState,
 } from "./tool-activity-projection.js";
 import {
-  flushVisibleTextBuffer,
   getVisibleTextBufferText,
   type VisibleTextBuffer,
 } from "./visible-text-buffer.js";
@@ -80,7 +79,6 @@ function flushBufferedTextMessages(args: FlushBufferedTextMessagesArgs): void {
   for (const [messageKey, message] of pendingMessages) {
     const buffer = args.buffers.get(messageKey);
     if (buffer) {
-      flushVisibleTextBuffer(buffer);
       syncBufferedTextMessage({
         buffer,
         messageKey,

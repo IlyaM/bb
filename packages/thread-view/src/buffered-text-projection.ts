@@ -133,7 +133,7 @@ export function projectBufferedTextEvent<
     return true;
   }
 
-  setVisibleTextBuffer(buffer, args.text, true);
+  setVisibleTextBuffer(buffer, args.text);
   syncBufferedTextMessage({
     buffer,
     messageKey,
@@ -182,6 +182,6 @@ export function projectReasoningTextEvent(
     return true;
   }
 
-  setVisibleTextBuffer(buffer, args.text, true);
+  setVisibleTextBuffer(buffer, args.text);
   return true;
 }

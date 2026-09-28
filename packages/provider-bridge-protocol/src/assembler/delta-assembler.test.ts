@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ClientTurnRequestId, ThreadEvent } from "@bb/domain";
 import { threadScope, turnScope } from "@bb/domain";
 import type { DeltaItemShape, ThreadDelta } from "../thread-delta.js";
@@ -2341,6 +2341,7 @@ describe("delta assembler text-delta batching", () => {
       entropyPrefix: "as-test",
       now: () => nowMs,
       textDeltaFlushMs,
+      onTextEvents: () => {},
     });
     return {
       assembler,
@@ -2371,8 +2372,11 @@ describe("delta assembler text-delta batching", () => {
     };
   }
 
-  it("emits the first delta of a fresh stream immediately, then coalesces", () => {
-    const { assembler, advance } = createBatchingAssembler();
+  it("emits prose on a quiet stream without needing a later delta or close", () => {
+    const assembler = createDeltaAssembler({
+      providerId: "pi",
+      entropyPrefix: "as-test",
+    });
     assemble(assembler, { kind: "turn.open" });
 
     const first = assemble(assembler, assistantDelta("Hel"));
@@ -2382,25 +2386,54 @@ describe("delta assembler text-delta batching", () => {
     ]);
     expect(first[1]).toMatchObject({ delta: "Hel" });
 
-    advance(20);
-    expect(assemble(assembler, assistantDelta("lo "))).toEqual([]);
-    advance(20);
-    expect(assemble(assembler, assistantDelta("wor"))).toEqual([]);
-
-    advance(100);
-    const flushed = assemble(assembler, assistantDelta("ld"));
-    expect(flushed).toEqual([
+    expect(assemble(assembler, assistantDelta("lo "))).toEqual([
       expect.objectContaining({
         type: "item/agentMessage/delta",
-        delta: "lo wor",
+        delta: "lo ",
       }),
     ]);
-    advance(200);
+    expect(assemble(assembler, assistantDelta("wor"))).toEqual([
+      expect.objectContaining({
+        type: "item/agentMessage/delta",
+        delta: "wor",
+      }),
+    ]);
+
+    expect(assemble(assembler, assistantDelta("ld"))).toEqual([
+      expect.objectContaining({ type: "item/agentMessage/delta", delta: "ld" }),
+    ]);
     expect(
       assemble(assembler, { kind: "turn.boundary", status: "completed" }).map(
-        (event) => ("delta" in event ? event.delta : event.type),
+        (event) => event.type,
       ),
-    ).toEqual(["ld", "turn/completed"]);
+    ).toEqual(["turn/completed"]);
+  });
+
+  it("delivers a buffered quiet tail when the finite window elapses", async () => {
+    vi.useFakeTimers();
+    try {
+      const delivered: ThreadEvent[] = [];
+      const assembler = createDeltaAssembler({
+        providerId: "claude-code",
+        entropyPrefix: "quiet-test",
+        textDeltaFlushMs: 100,
+        onTextEvents: (_threadId, events) => delivered.push(...events),
+      });
+      assemble(assembler, { kind: "turn.open" });
+      assemble(assembler, assistantDelta("first"));
+      expect(assemble(assembler, assistantDelta(" last fragment"))).toEqual([]);
+      await vi.advanceTimersByTimeAsync(99);
+      expect(delivered).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(delivered).toEqual([
+        expect.objectContaining({
+          type: "item/agentMessage/delta",
+          delta: " last fragment",
+        }),
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("a delta arriving after the window with no buffer emits alone at once", () => {
