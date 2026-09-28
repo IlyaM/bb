@@ -13,6 +13,7 @@ it as the reason the change exists, not as a summary of the diff.
 | local/observability-baseline | The observability effort needs its measurements re-takeable rather than re-derived, so IlyaM/bb#4's numbers and IlyaM/bb#8's comparison run from committed scripts. They import @bb/db and @bb/server-contract, so they live inside apps/*/scripts rather than under .fork/. | IlyaM/bb#4 | never | include |
 | local/observability-research | Keep the primary-source lifecycle comparison and visual map available to later wayfinding sessions independently of ephemeral BB thread storage, so the decisions about tool protocol and extensibility can be revisited with their evidence. | IlyaM/bb#13 | never | include |
 | patch/named-tool-generic-outcome | A named provider tool needs one durable call identity and complete generic final outcome so readers and existing clients can follow its execution without classification losing evidence. | IlyaM/bb#25 | not submitted | hold |
+| patch/vite-strict-dev-port | The checkout-specific dev app URL must stay stable when another listener occupies the same port on a different interface, so Vite can serve the selected loopback port instead of silently moving to the next one. | | not submitted | include |
 
 `main` is not listed: it is always the base of the rebuild. `Integration` is
 explicit: `include` merges the branch into `fork`; `hold` keeps it recorded and
