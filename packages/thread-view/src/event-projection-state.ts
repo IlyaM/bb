@@ -16,12 +16,10 @@ import {
 import { flushActiveToolCell } from "./tool-activity-cells.js";
 import {
   createToolActivityState,
-  flushPendingToolActivityOutput,
   interruptPendingToolActivity,
 } from "./tool-activity-projection.js";
 import {
   createOperationProjectionState,
-  flushPendingFileEditOutput,
   interruptOpenCompactions,
   type CompactionTurnFinalizationStatus,
   type OperationProjectionState,
@@ -174,8 +172,6 @@ export function onThreadInterrupted(args: ThreadInterruptedArgs): void {
 
 export function flushProjectionBufferedOutputs(state: ProjectionState): void {
   flushBufferedAssistantMessages(state);
-  flushPendingToolActivityOutput(state);
-  flushPendingFileEditOutput(state);
 }
 
 export function flushProjectionBufferedOutputsAfterTurnCompleted(
@@ -183,8 +179,6 @@ export function flushProjectionBufferedOutputsAfterTurnCompleted(
   turnId: string,
 ): void {
   flushBufferedAssistantMessagesForTurn(state, turnId);
-  flushPendingToolActivityOutput(state);
-  flushPendingFileEditOutput(state);
 }
 
 function finalizePendingMessages(args: FinalizeProjectionMessagesArgs): void {
@@ -198,8 +192,6 @@ function finalizePendingMessages(args: FinalizeProjectionMessagesArgs): void {
     return;
   }
 
-  flushPendingToolActivityOutput(args.state);
-  flushPendingFileEditOutput(args.state);
   interruptPendingToolActivity(args.state, {
     completedAt: args.state.threadInterruptedAt,
   });

@@ -29,7 +29,6 @@ import {
 import {
   appendVisibleTextBuffer,
   createVisibleTextBuffer,
-  flushVisibleTextBuffer,
   getVisibleTextBufferText,
   setVisibleTextBuffer,
   type VisibleTextBuffer,
@@ -397,37 +396,6 @@ function fileEditPartialStdout(partial: FileEditPartial): string | undefined {
   return "stdout" in partial ? partial.stdout : undefined;
 }
 
-function isTerminalFileEditStatus(
-  status: EventProjectionFileEditMessage["status"] | undefined,
-): boolean {
-  return status !== undefined && status !== "pending";
-}
-
-export function flushPendingFileEditOutput(
-  state: OperationProjectionState,
-): void {
-  const flushedBufferByScopedCallKey = new Map<
-    string,
-    VisibleTextBuffer | null
-  >();
-  for (const [callId, fileEdits] of state.fileEditsByCallId.entries()) {
-    for (const fileEdit of fileEdits) {
-      const scopedCallKey = scopedFileEditCallKey(callId, fileEdit);
-      let flushedBuffer = flushedBufferByScopedCallKey.get(scopedCallKey);
-      if (flushedBuffer === undefined) {
-        const buffer =
-          state.fileEditStdoutBuffersByScopedCallKey.get(scopedCallKey);
-        flushedBuffer =
-          buffer && flushVisibleTextBuffer(buffer) ? buffer : null;
-        flushedBufferByScopedCallKey.set(scopedCallKey, flushedBuffer);
-      }
-      if (flushedBuffer !== null) {
-        fileEdit.stdout = getVisibleTextBufferText(flushedBuffer);
-      }
-    }
-  }
-}
-
 interface CreateFileEditMessageArgs {
   callId: string;
   change: EventProjectionFileEditChange | null;
@@ -732,8 +700,6 @@ export function upsertFileEdit(
     } else {
       setVisibleTextBuffer(stdoutBuffer, partialStdout);
     }
-  } else if (isTerminalFileEditStatus(partial.status)) {
-    flushVisibleTextBuffer(stdoutBuffer);
   }
 
   const stdout = getVisibleTextBufferText(stdoutBuffer);

@@ -239,9 +239,9 @@ reasoningSummary | plan, text }` synthesizes the channel's `item/started`
   single event of the same type, so chatty providers stop producing one
   timeline event per token. The first delta of a fresh stream emits
   immediately (time-to-first-token unchanged); buffers flush trailing-edge
-  with no timers (the thread's next traffic once the window elapses, stream
-  close, session boundaries); and every non-batchable event is an ordering
-  barrier — coalescing never reorders text relative to item opens/closes,
+  via the required `onTextEvents` callback when the window elapses, even if
+  the provider goes quiet (or sooner on stream close or an ordering barrier);
+  every non-batchable event is an ordering barrier — coalescing never reorders text relative to item opens/closes,
   turn events, errors, or other streams' flushes. An output `reset` is never
   absorbed into a concatenation; `session.reset` flushes buffered text
   (assembled against the old session's still-valid ids) before dropping the

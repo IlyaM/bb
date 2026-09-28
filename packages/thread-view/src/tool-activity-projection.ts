@@ -23,7 +23,6 @@ import {
 import {
   appendVisibleTextBuffer,
   createVisibleTextBuffer,
-  flushVisibleTextBuffer,
   getVisibleTextBufferFullLength,
   getVisibleTextBufferFullText,
   getVisibleTextBufferText,
@@ -625,7 +624,6 @@ function applyPendingExecutionOutput(
   }
 
   if (isTerminalToolCallStatus(call.status)) {
-    flushVisibleTextBuffer(pending.outputBuffer);
     syncBufferedExecutionOutput(pending);
   }
   reconcilePendingExecutionOutput(call, pending);
@@ -777,40 +775,10 @@ function mergeExecutionSummary(
     mergeCallStatus(target.status, incoming.status) ?? target.status;
 }
 
-function syncProjectedCallOutput(
-  state: ToolActivityProjectionState,
-  call: RunningExecCall,
-): void {
-  const activeCall = findExecMessageInActiveCell(
-    state.toolActivity.activeCell,
-    call.callId,
-  );
-  if (activeCall) {
-    activeCall.output = call.output;
-  }
-
-  const historyMatch = findExecMessageInHistoryCells(state, call.callId);
-  if (historyMatch) {
-    historyMatch.call.output = call.output;
-  }
-}
-
 export function flushToolActivityBeforeNonToolMessage(
   state: ToolActivityProjectionState,
 ): void {
   flushActiveToolCell(state);
-}
-
-export function flushPendingToolActivityOutput(
-  state: ToolActivityProjectionState,
-): void {
-  for (const call of state.toolActivity.runningCallsById.values()) {
-    if (!flushVisibleTextBuffer(call.outputBuffer)) {
-      continue;
-    }
-    syncRunningCallVisibleOutput(call);
-    syncProjectedCallOutput(state, call);
-  }
 }
 
 export function interruptPendingToolActivity(
@@ -823,7 +791,6 @@ export function interruptPendingToolActivity(
       continue;
     }
 
-    flushVisibleTextBuffer(call.outputBuffer);
     syncRunningCallVisibleOutput(call);
     interruptPendingToolCall(call, args.completedAt);
 
@@ -1083,7 +1050,6 @@ export function onExecEnd(
   );
   applyPendingExecutionOutput(state, merged);
   if (isTerminalToolCallStatus(merged.status)) {
-    flushVisibleTextBuffer(merged.outputBuffer);
     syncRunningCallVisibleOutput(merged);
   }
   state.toolActivity.runningCallsById.delete(incoming.callId);

@@ -138,6 +138,7 @@ interface ThreadAssemblyState {
   pendingProgressByKey: Map<string, PendingProgressState>;
   textLastEmitByStream: Map<string, number>;
   pendingTextByStream: Map<string, PendingTextState>;
+  textFlushTimer: ReturnType<typeof setTimeout> | undefined;
 }
 
 export interface CreateDeltaAssemblerOptions {
@@ -145,6 +146,7 @@ export interface CreateDeltaAssemblerOptions {
   entropyPrefix?: string;
   progressThrottleMs?: number;
   textDeltaFlushMs?: number;
+  onTextEvents?: (threadId: string, events: ThreadEvent[]) => void;
   now?: () => number;
 }
 
@@ -207,6 +209,9 @@ export function createDeltaAssembler(
     options.entropyPrefix ?? `da${randomUUID().slice(0, 8)}`;
   const progressThrottleMs = options.progressThrottleMs ?? 500;
   const textDeltaFlushMs = options.textDeltaFlushMs ?? 0;
+  if (textDeltaFlushMs > 0 && options.onTextEvents === undefined) {
+    throw new Error("textDeltaFlushMs requires onTextEvents for quiet streams");
+  }
   const now = options.now ?? Date.now;
   let turnCounter = 0;
   let itemCounter = 0;
@@ -244,6 +249,7 @@ export function createDeltaAssembler(
       pendingProgressByKey: new Map(),
       textLastEmitByStream: new Map(),
       pendingTextByStream: new Map(),
+      textFlushTimer: undefined,
     };
     states.set(threadId, created);
     pruneIdleStates();
@@ -331,6 +337,10 @@ export function createDeltaAssembler(
     state: ThreadAssemblyState,
     out: ThreadEvent[],
   ): void {
+    if (state.textFlushTimer !== undefined) {
+      clearTimeout(state.textFlushTimer);
+      state.textFlushTimer = undefined;
+    }
     if (state.pendingTextByStream.size === 0) {
       return;
     }
@@ -357,7 +367,21 @@ export function createDeltaAssembler(
     }
   }
 
+  function scheduleTextFlush(
+    threadId: string,
+    state: ThreadAssemblyState,
+  ): void {
+    if (state.textFlushTimer !== undefined) return;
+    state.textFlushTimer = setTimeout(() => {
+      const events: ThreadEvent[] = [];
+      flushPendingText(state, events);
+      if (events.length > 0) options.onTextEvents?.(threadId, events);
+    }, textDeltaFlushMs);
+    state.textFlushTimer.unref();
+  }
+
   function bufferTextDelta(
+    threadId: string,
     state: ThreadAssemblyState,
     event: TextDeltaThreadEvent,
     out: ThreadEvent[],
@@ -393,6 +417,7 @@ export function createDeltaAssembler(
     }
     if (pending === undefined) {
       state.pendingTextByStream.set(streamKey, { event, text: event.delta });
+      scheduleTextFlush(threadId, state);
       return;
     }
     pending.text += event.delta;
@@ -2110,7 +2135,7 @@ export function createDeltaAssembler(
               textDeltaFlushMs > 0 ? asTextDeltaEvent(event) : undefined;
             const state = states.get(args.threadId);
             if (textDelta !== undefined && state !== undefined) {
-              bufferTextDelta(state, textDelta, events);
+              bufferTextDelta(args.threadId, state, textDelta, events);
               continue;
             }
             if (state !== undefined) {

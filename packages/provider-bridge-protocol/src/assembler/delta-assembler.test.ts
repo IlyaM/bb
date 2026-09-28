@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ClientTurnRequestId, ThreadEvent } from "@bb/domain";
 import { threadScope, turnScope } from "@bb/domain";
 import type { DeltaItemShape, ThreadDelta } from "../thread-delta.js";
@@ -2341,6 +2341,7 @@ describe("delta assembler text-delta batching", () => {
       entropyPrefix: "as-test",
       now: () => nowMs,
       textDeltaFlushMs,
+      onTextEvents: () => {},
     });
     return {
       assembler,
@@ -2406,6 +2407,33 @@ describe("delta assembler text-delta batching", () => {
         (event) => event.type,
       ),
     ).toEqual(["turn/completed"]);
+  });
+
+  it("delivers a buffered quiet tail when the finite window elapses", async () => {
+    vi.useFakeTimers();
+    try {
+      const delivered: ThreadEvent[] = [];
+      const assembler = createDeltaAssembler({
+        providerId: "claude-code",
+        entropyPrefix: "quiet-test",
+        textDeltaFlushMs: 100,
+        onTextEvents: (_threadId, events) => delivered.push(...events),
+      });
+      assemble(assembler, { kind: "turn.open" });
+      assemble(assembler, assistantDelta("first"));
+      expect(assemble(assembler, assistantDelta(" last fragment"))).toEqual([]);
+      await vi.advanceTimersByTimeAsync(99);
+      expect(delivered).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(delivered).toEqual([
+        expect.objectContaining({
+          type: "item/agentMessage/delta",
+          delta: " last fragment",
+        }),
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("a delta arriving after the window with no buffer emits alone at once", () => {

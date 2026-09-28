@@ -45,10 +45,6 @@ export function setVisibleTextBuffer(
   return changed;
 }
 
-export function flushVisibleTextBuffer(_buffer: VisibleTextBuffer): boolean {
-  return false;
-}
-
 export function getVisibleTextBufferFullLength(
   buffer: VisibleTextBuffer,
 ): number {
