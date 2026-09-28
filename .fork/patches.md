@@ -13,6 +13,7 @@ change exists, not as a summary of the diff.
 | local/observability-hack | Throwaway probe for IlyaM/bb#3: unbounded streaming and always-expanded rows, to find out which of bb's deliberate delays and its collapse-by-default actually carries the feeling of being behind. Never submitted, never rebased for merit. IlyaM/bb#3 is answered but the branch outlives it: IlyaM/bb#8 measures against it, so delete only once that is done. | IlyaM/bb#3 | never |
 | local/observability-research | Keep the primary-source lifecycle comparison and visual map available to later wayfinding sessions independently of ephemeral BB thread storage, so the decisions about tool protocol and extensibility can be revisited with their evidence. | IlyaM/bb#13 | never |
 | patch/named-tool-generic-outcome | A named provider tool needs one durable call identity and complete generic final outcome so readers and existing clients can follow its execution without classification losing evidence. | IlyaM/bb#25 | not submitted |
+| patch/assistant-prose-timer | Assistant prose and streamed output must become visible within a finite bound without relying on a newline, a later provider event, or turn completion, while preserving bounded progress throttling. | IlyaM/bb#19 | not submitted |
 
 `main` is not listed: it is always the base of the rebuild.
 
