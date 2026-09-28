@@ -2,6 +2,7 @@
 
 Evidence gathered for [Decide how the delta protocol should represent a tool call still being written](https://github.com/IlyaM/bb/issues/13) and the follow-on [How should tool-specific presentation extend bb, including pi extension tools?](https://github.com/IlyaM/bb/issues/16).
 
+- [Event data model and missing-activity report](bb-events-data-model.html) — illustrated guide to the stored event schema, item variants, projection layers, and where each provider loses visibility. Source snapshot `73d954f4b`; the issue resolutions remain authoritative for decisions. To show it inline in BB: `::inline-vis{file=".fork/research/observability/bb-events-data-model.html" height=900}`.
 - [Visual comparison](tool-lifecycle-visual.html) — self-contained HTML diagrams of lifecycle phases, native harness differences, and bb's translation/projection gaps. To show it inline in BB from a checkout containing this directory: `::inline-vis{file=".fork/research/observability/tool-lifecycle-visual.html" height=900}`.
 - [Detailed report](tool-lifecycle-native-harnesses-vs-bb.md) — primary-source comparison across pi, Claude Code, Codex, ACP and bb; bb source links point to the commit used during research, and pi links to tagged v0.87.1 source.
 - [Pi TUI source trace](pi-tui-tool-streaming.md) — closer trace of partial arguments, tool execution and rendering in installed pi 0.87.1.
