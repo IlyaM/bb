@@ -20,6 +20,7 @@ export default defineConfig({
     allowedHosts: [".ts.net"],
     host: viteDevConfig.appHost,
     port: viteDevConfig.appPort,
+    strictPort: true,
     proxy: {
       "/api": {
         target: viteDevConfig.serverHttpOrigin,
