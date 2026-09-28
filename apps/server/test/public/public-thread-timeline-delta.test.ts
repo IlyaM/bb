@@ -329,9 +329,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
         expect(tick.delta).toBeDefined();
         const merged = applyTimelineDelta(before.rows, tick.delta!) ?? [];
         expect(merged).toEqual(buildColdLatestRows(harness, thread));
-        expect(assistantText(merged) ?? "").toBe(
-          streamed.slice(0, streamed.lastIndexOf("\n") + 1),
-        );
+        expect(assistantText(merged) ?? "").toBe(streamed);
         before = { ...tick, rows: merged };
       }
       expect(

@@ -2371,8 +2371,11 @@ describe("delta assembler text-delta batching", () => {
     };
   }
 
-  it("emits the first delta of a fresh stream immediately, then coalesces", () => {
-    const { assembler, advance } = createBatchingAssembler();
+  it("emits prose on a quiet stream without needing a later delta or close", () => {
+    const assembler = createDeltaAssembler({
+      providerId: "pi",
+      entropyPrefix: "as-test",
+    });
     assemble(assembler, { kind: "turn.open" });
 
     const first = assemble(assembler, assistantDelta("Hel"));
@@ -2382,25 +2385,27 @@ describe("delta assembler text-delta batching", () => {
     ]);
     expect(first[1]).toMatchObject({ delta: "Hel" });
 
-    advance(20);
-    expect(assemble(assembler, assistantDelta("lo "))).toEqual([]);
-    advance(20);
-    expect(assemble(assembler, assistantDelta("wor"))).toEqual([]);
-
-    advance(100);
-    const flushed = assemble(assembler, assistantDelta("ld"));
-    expect(flushed).toEqual([
+    expect(assemble(assembler, assistantDelta("lo "))).toEqual([
       expect.objectContaining({
         type: "item/agentMessage/delta",
-        delta: "lo wor",
+        delta: "lo ",
       }),
     ]);
-    advance(200);
+    expect(assemble(assembler, assistantDelta("wor"))).toEqual([
+      expect.objectContaining({
+        type: "item/agentMessage/delta",
+        delta: "wor",
+      }),
+    ]);
+
+    expect(assemble(assembler, assistantDelta("ld"))).toEqual([
+      expect.objectContaining({ type: "item/agentMessage/delta", delta: "ld" }),
+    ]);
     expect(
       assemble(assembler, { kind: "turn.boundary", status: "completed" }).map(
-        (event) => ("delta" in event ? event.delta : event.type),
+        (event) => event.type,
       ),
-    ).toEqual(["ld", "turn/completed"]);
+    ).toEqual(["turn/completed"]);
   });
 
   it("a delta arriving after the window with no buffer emits alone at once", () => {

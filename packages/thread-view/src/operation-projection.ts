@@ -730,11 +730,7 @@ export function upsertFileEdit(
     if (fileEditPartialHasAppendedStdout(partial)) {
       appendVisibleTextBuffer(stdoutBuffer, partialStdout);
     } else {
-      setVisibleTextBuffer(
-        stdoutBuffer,
-        partialStdout,
-        isTerminalFileEditStatus(partial.status),
-      );
+      setVisibleTextBuffer(stdoutBuffer, partialStdout);
     }
   } else if (isTerminalFileEditStatus(partial.status)) {
     flushVisibleTextBuffer(stdoutBuffer);

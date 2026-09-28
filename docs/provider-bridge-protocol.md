@@ -231,8 +231,9 @@ reasoningSummary | plan, text }` synthesizes the channel's `item/started`
   schemas strip them; old stored events remain readable without a migration.
 
 - **Streamed-text batching.** Coalescing is assembler policy, not bridge
-  policy: within a per-stream flush window (`textDeltaFlushMs`, 100ms
-  default, 0 disables) consecutive streamed-text events — assistant/
+  policy: the default `textDeltaFlushMs` is 0, so every streamed-text event
+  emits immediately even if no later provider event arrives. When explicitly
+  set above 0, consecutive streamed-text events — assistant/
   reasoning/plan deltas and command/fileChange output deltas, including the
   ones the assembler's own snapshot diffing produces — concatenate into a
   single event of the same type, so chatty providers stop producing one

@@ -206,7 +206,7 @@ export function createDeltaAssembler(
   const entropyPrefix =
     options.entropyPrefix ?? `da${randomUUID().slice(0, 8)}`;
   const progressThrottleMs = options.progressThrottleMs ?? 500;
-  const textDeltaFlushMs = options.textDeltaFlushMs ?? 100;
+  const textDeltaFlushMs = options.textDeltaFlushMs ?? 0;
   const now = options.now ?? Date.now;
   let turnCounter = 0;
   let itemCounter = 0;

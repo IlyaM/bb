@@ -1,6 +1,4 @@
 export interface VisibleTextBuffer {
-  pendingChunks: string[];
-  pendingLength: number;
   visibleChunks: string[];
   visibleLength: number;
   visibleTextCache: string | null;
@@ -19,8 +17,6 @@ function appendVisibleSegment(buffer: VisibleTextBuffer, text: string): void {
 
 export function createVisibleTextBuffer(): VisibleTextBuffer {
   return {
-    pendingChunks: [],
-    pendingLength: 0,
     visibleChunks: [],
     visibleLength: 0,
     visibleTextCache: null,
@@ -34,99 +30,35 @@ export function appendVisibleTextBuffer(
   if (delta.length === 0) {
     return false;
   }
-
-  const lastNewlineIndex = delta.lastIndexOf("\n");
-  if (lastNewlineIndex === -1) {
-    buffer.pendingChunks.push(delta);
-    buffer.pendingLength += delta.length;
-    return true;
-  }
-
-  flushVisibleTextBuffer(buffer);
-  appendVisibleSegment(buffer, delta.slice(0, lastNewlineIndex + 1));
-
-  const trailingPartial = delta.slice(lastNewlineIndex + 1);
-  if (trailingPartial.length > 0) {
-    buffer.pendingChunks.push(trailingPartial);
-    buffer.pendingLength += trailingPartial.length;
-  }
+  appendVisibleSegment(buffer, delta);
   return true;
 }
 
 export function setVisibleTextBuffer(
   buffer: VisibleTextBuffer,
   text: string,
-  flushTrailingPartial: boolean,
 ): boolean {
-  const previousFullText = getVisibleTextBufferFullText(buffer);
-  const previousVisibleText = getVisibleTextBufferText(buffer) ?? "";
-
-  buffer.pendingChunks = [];
-  buffer.pendingLength = 0;
-  buffer.visibleChunks = [];
-  buffer.visibleLength = 0;
-  buffer.visibleTextCache = null;
-
-  if (text.length > 0) {
-    if (flushTrailingPartial) {
-      buffer.visibleChunks.push(text);
-      buffer.visibleLength = text.length;
-      buffer.visibleTextCache = text;
-    } else {
-      const lastNewlineIndex = text.lastIndexOf("\n");
-      if (lastNewlineIndex === -1) {
-        buffer.pendingChunks.push(text);
-        buffer.pendingLength = text.length;
-      } else {
-        const visibleText = text.slice(0, lastNewlineIndex + 1);
-        buffer.visibleChunks.push(visibleText);
-        buffer.visibleLength = visibleText.length;
-        buffer.visibleTextCache = visibleText;
-
-        const trailingPartial = text.slice(lastNewlineIndex + 1);
-        if (trailingPartial.length > 0) {
-          buffer.pendingChunks.push(trailingPartial);
-          buffer.pendingLength = trailingPartial.length;
-        }
-      }
-    }
-  }
-
-  return (
-    previousFullText !== text ||
-    previousVisibleText !== (getVisibleTextBufferText(buffer) ?? "")
-  );
+  const changed = getVisibleTextBufferFullText(buffer) !== text;
+  buffer.visibleChunks = text.length > 0 ? [text] : [];
+  buffer.visibleLength = text.length;
+  buffer.visibleTextCache = text;
+  return changed;
 }
 
-export function flushVisibleTextBuffer(buffer: VisibleTextBuffer): boolean {
-  if (buffer.pendingLength === 0) {
-    return false;
-  }
-
-  if (buffer.visibleTextCache !== null) {
-    buffer.visibleTextCache += buffer.pendingChunks.join("");
-  }
-  buffer.visibleChunks.push(...buffer.pendingChunks);
-  buffer.visibleLength += buffer.pendingLength;
-  buffer.pendingChunks = [];
-  buffer.pendingLength = 0;
-  return true;
+export function flushVisibleTextBuffer(_buffer: VisibleTextBuffer): boolean {
+  return false;
 }
 
 export function getVisibleTextBufferFullLength(
   buffer: VisibleTextBuffer,
 ): number {
-  return buffer.visibleLength + buffer.pendingLength;
+  return buffer.visibleLength;
 }
 
 export function getVisibleTextBufferFullText(
   buffer: VisibleTextBuffer,
 ): string {
-  const visibleText = buffer.visibleTextCache ?? buffer.visibleChunks.join("");
-  if (buffer.pendingLength === 0) {
-    return visibleText;
-  }
-  return `${visibleText}${buffer.pendingChunks.join("")}`;
+  return getVisibleTextBufferText(buffer) ?? "";
 }
 
 export function getVisibleTextBufferText(

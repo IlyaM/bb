@@ -250,18 +250,13 @@ function syncRunningCallVisibleOutput(call: RunningExecCall): void {
 function setBufferedExecutionOutput(
   target: BufferedExecutionOutput,
   text: string,
-  flushTrailingPartial: boolean,
 ): void {
-  setVisibleTextBuffer(target.outputBuffer, text, flushTrailingPartial);
+  setVisibleTextBuffer(target.outputBuffer, text);
   syncBufferedExecutionOutput(target);
 }
 
-function setRunningCallOutput(
-  call: RunningExecCall,
-  text: string,
-  flushTrailingPartial: boolean,
-): void {
-  setBufferedExecutionOutput(call, text, flushTrailingPartial);
+function setRunningCallOutput(call: RunningExecCall, text: string): void {
+  setBufferedExecutionOutput(call, text);
 }
 
 interface CreateRunningExecutionBaseArgs {
@@ -279,11 +274,7 @@ function createRunningExecutionBase({
 }: CreateRunningExecutionBaseArgs): RunningExecutionBase {
   const outputBuffer = createVisibleTextBuffer();
   if (incoming.output && incoming.output.length > 0) {
-    setVisibleTextBuffer(
-      outputBuffer,
-      incoming.output,
-      isTerminalToolCallStatus(incoming.status),
-    );
+    setVisibleTextBuffer(outputBuffer, incoming.output);
   }
 
   return {
@@ -546,11 +537,7 @@ function upsertRunningExecCall(
       incoming.output.length >=
         getVisibleTextBufferFullLength(existing.outputBuffer)
     ) {
-      setRunningCallOutput(
-        existing,
-        incoming.output,
-        isTerminalToolCallStatus(incoming.status),
-      );
+      setRunningCallOutput(existing, incoming.output);
     }
   }
 
@@ -583,18 +570,14 @@ function applyExecutionOutputUpdate(
     return;
   }
   if (replaceOutput) {
-    setBufferedExecutionOutput(
-      target,
-      incoming.output,
-      isTerminalToolCallStatus(incoming.status),
-    );
+    setBufferedExecutionOutput(target, incoming.output);
     return;
   }
   if (
     incoming.output.length >=
     getVisibleTextBufferFullLength(target.outputBuffer)
   ) {
-    setBufferedExecutionOutput(target, incoming.output, true);
+    setBufferedExecutionOutput(target, incoming.output);
   }
 }
 
@@ -674,11 +657,7 @@ function reconcilePendingExecutionOutput(
   const reconciledText = pendingText.includes(callText)
     ? pendingText
     : `${pendingText}${callText}`;
-  setRunningCallOutput(
-    call,
-    reconciledText,
-    isTerminalToolCallStatus(call.status),
-  );
+  setRunningCallOutput(call, reconciledText);
 }
 
 function shouldInterruptToolScope(
