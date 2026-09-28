@@ -7,6 +7,11 @@ This is a fork of get-bb/bb. `upstream` is get-bb/bb, `origin` is the fork.
   not have — that is what keeps `git merge upstream/main` conflict-free. A change
   that edits an upstream file is a `patch/` branch, never a `main` commit. Never
   rebase or force-push `main`.
+- **Retained work product** — research, reports, diagrams, benchmarks, and other
+  task artifacts — belongs on a matching `patch/` or `local/` branch, even when
+  it only adds files under `.fork/`. Before creating a branch, check
+  `.fork/patches.md` for one that already owns the work. Reserve `main` for
+  fork support a fresh worktree needs before anyone asks for it.
 - `fork` is derived and force-rebuilt every sync. Never commit to it — commits
   made there are destroyed.
 - New work goes on its own branch off `main`: `patch/<slug>` if it might go

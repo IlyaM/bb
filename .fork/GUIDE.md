@@ -53,11 +53,15 @@ Ask in this order.
    do not contort a real code change to fit.
 
 Add-only is a *constraint* on what may sit on `main`, never a reason to put it
-there. A script, benchmark, harness, or fixture is work product: invariant-safe,
-and still a branch — on a `local/` branch when it has to sit inside a workspace
-package to resolve its `@bb/*` imports, which `.fork/` cannot offer. Two costs
-fall on work product that lands on `main` anyway.
-Every patch is cut from `main`, so it rides along in each one's tree. And
+there. Research, reports, diagrams, scripts, benchmarks, harnesses, and
+fixtures are work product: invariant-safe, and still a branch, even when they
+only add files under `.fork/`. Check `.fork/patches.md` for a branch that already
+owns the work before creating one. Work product that must sit inside a workspace
+package to resolve its `@bb/*` imports, which `.fork/` cannot offer, belongs on
+a `local/` branch when it will not go upstream.
+
+Two costs fall on work product that lands on `main` anyway. Every patch is cut
+from `main`, so it rides along in each one's tree. And
 `fork-upstream` greps a patch diff for `.fork/`, so work product parked in a
 directory upstream owns — `apps/*/scripts`, say — is invisible to that check.
 
